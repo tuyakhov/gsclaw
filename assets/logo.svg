@@ -1,16 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title">
   <title id="title">GSClaw</title>
+  <!-- Three rising ranking bars drawn as talons. Original artwork, MIT licensed with the project. -->
   <defs>
-    <linearGradient id="claw" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#7C3AED"/>
+    <linearGradient id="talon" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#14B8A6"/>
       <stop offset="1" stop-color="#A78BFA"/>
     </linearGradient>
   </defs>
-  <circle cx="220" cy="220" r="132" fill="none" stroke="#14B8A6" stroke-width="34"/>
-  <path d="M318 318L418 418" stroke="#14B8A6" stroke-width="50" stroke-linecap="round"/>
-  <g fill="url(#claw)">
-    <path d="M158 296Q208.1 277.5 194 226Q172.6 259.3 158 296Z"/>
-    <path d="M206 306Q264.7 259.2 248 186Q223 244.6 206 306Z"/>
-    <path d="M256 302Q320.9 236.4 302 146Q274.6 222.7 256 302Z"/>
+  <g fill="url(#talon)" transform="translate(-3 7)">
+    <path d="M88 406Q88 424 106 424L162 424Q180 424 180 406C184 330.5 190.6 274.4 184.6 254C120.2 288 82 339 88 406Z"/>
+    <path d="M210 406Q210 424 228 424L284 424Q302 424 302 406C306 282.1 312.6 197 306.6 166C242.2 217.6 204 295 210 406Z"/>
+    <path d="M332 406Q332 424 350 424L406 424Q424 424 424 406C428 231.5 434.6 116 428.6 74C364.2 144 326 249 332 406Z"/>
   </g>
 </svg>
