@@ -24,7 +24,7 @@ src/core/            Runtime-agnostic: fetch + WebCrypto only, no node:* imports
   tools/             One file per tool family: zod input, annotations, run(), format()
   analysis/          Pure functions behind the analysis tools (unit-tested without I/O)
   dates.ts format.ts errors.ts activity.ts ratelimit.ts cache.ts log.ts crypto.ts pages.ts
-src/adapters/        Thin entrypoints: node-http (srvx), stdio; vercel, netlify, cloudflare (phase 2)
+src/adapters/        Thin entrypoints: node-http (srvx), stdio, vercel, netlify, cloudflare
 src/cli.ts           `gsclaw` (stdio, default) | `gsclaw serve` | `gsclaw generate-token`
 test/                Vitest unit tests + adapter integration tests against a fake GSC backend
 ```
