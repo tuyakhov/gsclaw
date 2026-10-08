@@ -1,0 +1,17 @@
+# Render Blueprint ("Deploy to Render" button). Native Node runtime; pnpm via Corepack.
+services:
+  - type: web
+    name: gsclaw
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: node dist/cli.js serve
+    healthCheckPath: /healthz
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: NODE_VERSION
+        value: '24'
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: GSCLAW_ACCESS_TOKEN
+        generateValue: true

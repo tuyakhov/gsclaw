@@ -1,0 +1,16 @@
+# Netlify: pnpm is detected from pnpm-lock.yaml and pinned by package.json#packageManager.
+[build]
+  command = "pnpm build"
+  publish = "dist/public"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Prompted by the "Deploy to Netlify" button.
+[template.environment]
+  GOOGLE_SERVICE_ACCOUNT_JSON = "Service-account key JSON (raw or base64). See the README quickstart."
+  GSCLAW_ACCESS_TOKEN = "Long random secret clients must present. Generate with: openssl rand -hex 32"

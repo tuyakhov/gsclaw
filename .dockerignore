@@ -1,0 +1,10 @@
+# Only what the image build needs; never secrets.
+*
+!package.json
+!pnpm-lock.yaml
+!.npmrc
+!tsconfig.json
+!tsdown.config.ts
+!scripts/
+!src/
+!LICENSE

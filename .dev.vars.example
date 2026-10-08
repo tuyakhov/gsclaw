@@ -1,0 +1,4 @@
+# Secrets for Cloudflare Workers (`wrangler secret put <NAME>`), prompted by the Deploy button.
+# For local `wrangler dev`, copy to .dev.vars (gitignored) and fill in.
+GOOGLE_SERVICE_ACCOUNT_JSON=
+GSCLAW_ACCESS_TOKEN=

@@ -1,0 +1,22 @@
+# DigitalOcean App Platform ("Deploy to DigitalOcean" button). Builds the repo's Dockerfile,
+# which installs and builds with pnpm.
+spec:
+  name: gsclaw
+  services:
+    - name: web
+      git:
+        repo_clone_url: https://github.com/tuyakhov/gsclaw.git
+        branch: main
+      dockerfile_path: Dockerfile
+      http_port: 3000
+      instance_count: 1
+      instance_size_slug: apps-s-1vcpu-0.5gb
+      health_check:
+        http_path: /healthz
+      envs:
+        - key: GOOGLE_SERVICE_ACCOUNT_JSON
+          type: SECRET
+          scope: RUN_TIME
+        - key: GSCLAW_ACCESS_TOKEN
+          type: SECRET
+          scope: RUN_TIME
