@@ -48,8 +48,15 @@ export function TrendChart({ points, theme }: { points: TrendPoint[]; theme: 'li
           clicks: { range: (_u, _min, max) => [0, (max || 1) * 1.15] },
           impressions: { range: (_u, _min, max) => [0, (max || 1) * 1.15] },
         },
+        // Idle (cursor outside the plot): the legend is a plain key; values appear on hover.
+        hooks: {
+          setCursor: [(u) => u.root.classList.toggle('idle', u.cursor.idx == null)],
+        },
         series: [
-          {},
+          {
+            value: (_u, v) =>
+              v === null ? '' : uPlot.fmtDate('{MMM} {D}, {YYYY}')(new Date(v * 1000)),
+          },
           {
             label: 'Clicks',
             scale: 'clicks',
@@ -79,6 +86,7 @@ export function TrendChart({ points, theme }: { points: TrendPoint[]; theme: 'li
       data,
       el,
     );
+    plot.root.classList.add('idle');
     const resize = new ResizeObserver(() =>
       plot.setSize({ width: el.clientWidth, height: HEIGHT }),
     );

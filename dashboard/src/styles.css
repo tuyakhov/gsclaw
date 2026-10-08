@@ -809,6 +809,23 @@ pre.code {
   font-size: 0.85rem;
 }
 
+/* uPlot's legend is a table; keep the dashboard's table styles out of it. */
+.chart .u-legend th,
+.chart .u-legend td {
+  border: 0;
+  padding: 2px 4px;
+  font-weight: 500;
+}
+
+.chart .idle .u-legend .u-series:first-child,
+.chart .idle .u-legend .u-value {
+  display: none;
+}
+
+.chart .idle .u-legend th::after {
+  content: none;
+}
+
 .chart .u-select {
   background: var(--accent-soft);
 }
