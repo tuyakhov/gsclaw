@@ -63,6 +63,22 @@ describe('HTTP app', () => {
     expect((await a.fetch(post('/mcp', {}))).status).toBe(503);
   });
 
+  it('never shows configuration values on the public setup page', async () => {
+    const secret = 'pasted-token-0123456789abcdef0123456789';
+    const a = createApp(
+      {
+        GOOGLE_SERVICE_ACCOUNT_JSON: secret,
+        GSCLAW_ACCESS_TOKEN: 'short',
+        GSCLAW_MAX_ROWS: secret,
+      },
+      { name: 'test' },
+    );
+    const page = await (await a.fetch(new Request(`${BASE}/`))).text();
+    expect(page).toContain('GSCLAW_MAX_ROWS');
+    expect(page).not.toContain(secret);
+    expect(page).not.toContain('short');
+  });
+
   it('requires a bearer token on /mcp', async () => {
     const a = app();
     const missing = await a.fetch(post('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }));
@@ -76,6 +92,7 @@ describe('HTTP app', () => {
   it('answers wrong secret paths with 404, and can disable secret paths', async () => {
     expect((await app().fetch(post('/mcp/not-the-token', {}))).status).toBe(404);
     expect((await app().fetch(post('/mcp/a/b', {}))).status).toBe(404);
+    expect((await app().fetch(post('/mcp/%E0%A4%A', {}))).status).toBe(404);
     expect(
       (await app({ GSCLAW_SECRET_PATH: 'false' }).fetch(post(`/mcp/${ACCESS_TOKEN}`, {}))).status,
     ).toBe(404);

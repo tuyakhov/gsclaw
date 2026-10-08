@@ -89,6 +89,31 @@ describe('loadConfig', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(formatConfigErrors(result.errors)).not.toContain(secret);
   });
+
+  it('never echoes a value pasted into the wrong variable', () => {
+    // Misconfigured serverless deployments show these messages on a public page.
+    const secret = 'pasted-token-0123456789abcdef0123456789';
+    const keys = [
+      'GSCLAW_AUTH_MODE',
+      'GSCLAW_ALLOW_WRITES',
+      'GSCLAW_DASHBOARD',
+      'GSCLAW_SECRET_PATH',
+      'GSCLAW_MAX_ROWS',
+      'GSCLAW_RATE_LIMIT_PER_MINUTE',
+      'GSCLAW_CACHE_TTL_SECONDS',
+      'GSCLAW_BATCH_INSPECT_MAX',
+      'GSCLAW_ALLOWED_ORIGINS',
+      'PUBLIC_BASE_URL',
+      'LOG_LEVEL',
+    ];
+    const result = loadConfig(testEnv(Object.fromEntries(keys.map((k) => [k, secret]))), {
+      transport: 'http',
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.length).toBe(keys.length);
+    expect(formatConfigErrors(result.errors)).not.toContain(secret);
+  });
 });
 
 describe('parseServiceAccountJson', () => {

@@ -48,6 +48,15 @@ function html(body: string, status = 200): Response {
   return new Response(body, { status, headers: HTML_SECURITY_HEADERS });
 }
 
+/** Malformed percent-encoding must look like any other wrong secret (404), not a 500. */
+function safeDecode(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 const notFound = () =>
   new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
 
@@ -185,7 +194,7 @@ export function createApp(env: Env, platform: PlatformOptions): App {
       if (
         !config.secretPath ||
         secret.includes('/') ||
-        !(await timingSafeEqual(decodeURIComponent(secret), accessToken))
+        !(await timingSafeEqual(safeDecode(secret), accessToken))
       ) {
         return notFound();
       }

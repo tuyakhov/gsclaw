@@ -41,7 +41,12 @@ export type ConfigResult =
 export const MIN_ACCESS_TOKEN_LENGTH = 32;
 export const SETUP_DOCS_URL = 'https://github.com/tuyakhov/gsclaw#quickstart';
 
-/** Loads and validates configuration from environment variables. Never throws. */
+/**
+ * Loads and validates configuration from environment variables. Never throws.
+ *
+ * Error messages name variables but never echo their values: on serverless deployments they are
+ * shown on the public setup page, and a secret pasted into the wrong variable must not leak.
+ */
 export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResult {
   const errors: ConfigIssue[] = [];
   const warnings: string[] = [];
@@ -60,7 +65,7 @@ export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResu
     else
       errors.push({
         variable: 'GSCLAW_AUTH_MODE',
-        message: `must be "service_account" or "oauth" (got "${explicitMode}").`,
+        message: 'must be "service_account" or "oauth".',
       });
   } else if (hasServiceAccount && hasOAuth) {
     errors.push({
@@ -128,7 +133,7 @@ export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResu
     const v = value.toLowerCase();
     if (['1', 'true', 'yes', 'on'].includes(v)) return true;
     if (['0', 'false', 'no', 'off'].includes(v)) return false;
-    errors.push({ variable: key, message: `must be true or false (got "${value}").` });
+    errors.push({ variable: key, message: 'must be "true" or "false".' });
     return fallback;
   };
 
@@ -139,7 +144,7 @@ export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResu
     if (!Number.isInteger(n) || n < min || n > max) {
       errors.push({
         variable: key,
-        message: `must be an integer between ${min} and ${max} (got "${value}").`,
+        message: `must be an integer between ${min} and ${max}.`,
       });
       return fallback;
     }
@@ -159,7 +164,7 @@ export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResu
     } catch {
       errors.push({
         variable: 'PUBLIC_BASE_URL',
-        message: `is not a valid URL ("${publicBaseUrl}").`,
+        message: 'is not a valid URL (expected e.g. https://gsclaw.example.com).',
       });
       publicBaseUrl = undefined;
     }
@@ -174,7 +179,7 @@ export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResu
     } catch {
       errors.push({
         variable: 'GSCLAW_ALLOWED_ORIGINS',
-        message: `contains an invalid origin ("${value}").`,
+        message: 'contains an invalid origin (expected e.g. https://app.example.com).',
       });
     }
   }
