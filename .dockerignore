@@ -7,4 +7,6 @@
 !tsdown.config.ts
 !scripts/
 !src/
+!dashboard/
+!assets/
 !LICENSE

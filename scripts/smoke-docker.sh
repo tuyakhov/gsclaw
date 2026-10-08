@@ -34,6 +34,10 @@ for _ in $(seq 1 30); do
 done
 curl -fsS "http://127.0.0.1:$PORT/healthz"; echo
 
+# The dashboard shell and its assets are served from the image.
+curl -fsS "http://127.0.0.1:$PORT/" | grep -q '/assets/dashboard.js' || { echo "dashboard shell missing"; exit 1; }
+curl -fsS -o /dev/null "http://127.0.0.1:$PORT/assets/dashboard.js" || { echo "dashboard assets missing"; exit 1; }
+
 # Unauthenticated requests must be rejected.
 status="$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/mcp")"
 [[ "$status" == "401" ]] || { echo "expected 401 without token, got $status"; exit 1; }

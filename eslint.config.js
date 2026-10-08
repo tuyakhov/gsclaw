@@ -69,6 +69,17 @@ export default tseslint.config(
     },
   },
   {
+    files: ['dashboard/**/*.{ts,tsx}'],
+    languageOptions: { globals: { ...globals.browser } },
+    rules: {
+      // Async event handlers in JSX are fine; Preact ignores their return value.
+      '@typescript-eslint/no-misused-promises': [
+        'error',
+        { checksVoidReturn: { attributes: false } },
+      ],
+    },
+  },
+  {
     files: ['**/*.js', '**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
   },

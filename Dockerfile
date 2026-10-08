@@ -20,6 +20,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
 COPY tsconfig.json tsdown.config.ts ./
 COPY scripts ./scripts
+COPY assets ./assets
+COPY dashboard ./dashboard
 COPY src ./src
 RUN pnpm build
 
