@@ -27,7 +27,7 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-interface Series {
+export interface Series {
   query: string;
   page: string;
   impressions: number;
@@ -101,12 +101,16 @@ export const SERIES: Series[] = [
   }),
 ];
 
-export function buildFacts(endDate = LATEST_FINAL_DATE, days = 200): Fact[] {
+export function buildFacts(
+  endDate = LATEST_FINAL_DATE,
+  days = 200,
+  opts: { series?: Series[]; shape?: (daysAgo: number, date: string, s: Series) => number } = {},
+): Fact[] {
   const facts: Fact[] = [];
   for (let back = 0; back < days; back++) {
     const date = addDays(endDate, -back);
-    for (const s of SERIES) {
-      const factor = s.trend ? s.trend(back) : 1;
+    for (const s of opts.series ?? SERIES) {
+      const factor = (s.trend ? s.trend(back) : 1) * (opts.shape ? opts.shape(back, date, s) : 1);
       const impressions = Math.round(s.impressions * factor);
       facts.push({
         date,

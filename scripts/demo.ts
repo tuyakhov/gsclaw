@@ -13,6 +13,7 @@ import { addDays, todayPT } from '../src/core/dates.js';
 import { GOOGLE_AUTH_URL } from '../src/core/oauth/google.js';
 import { buildFacts, createFakeGsc } from '../test/helpers/fake-gsc.js';
 import { withFakeGoogle, type GoogleUser } from '../test/helpers/oauth.js';
+import { DEMO_SERIES, demoShape } from './demo-data.js';
 import { serviceAccountJson } from '../test/helpers/setup.js';
 
 const PORT = Number(process.env.PORT ?? 3920);
@@ -25,8 +26,15 @@ const USERS: GoogleUser[] = [
   { sub: 'mallory', email: 'mallory@elsewhere.dev' },
 ];
 
-const fake = createFakeGsc({ facts: buildFacts(addDays(todayPT(), -3), 480) });
+const fake = createFakeGsc({
+  facts: buildFacts(addDays(todayPT(), -3), 480, { series: DEMO_SERIES, shape: demoShape }),
+});
 const google = withFakeGoogle(fake.fetch, USERS, CLIENT_ID, () => Math.floor(Date.now() / 1000));
+// Google's APIs take a moment to answer; so does the demo, so loading states and latency look real.
+const withLatency: typeof fetch = async (input, init) => {
+  await new Promise((resolve) => setTimeout(resolve, 60 + Math.random() * 120));
+  return google.fetch(input, init);
+};
 
 const env: Env = OAUTH
   ? {
@@ -48,7 +56,7 @@ const staticDir = findStaticDir();
 const app = createApp(env, {
   name: 'node',
   localOnly: true,
-  fetch: google.fetch,
+  fetch: withLatency,
   serveStatic: staticDir ? createStaticHandler(staticDir) : undefined,
 });
 if (app.setupErrors.length > 0) throw new Error(formatConfigErrors(app.setupErrors));
