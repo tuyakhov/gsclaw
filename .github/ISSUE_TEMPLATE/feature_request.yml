@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest a tool, analysis, platform or improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The SEO question or workflow you'd like GSClaw to handle, and how you handle it today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help?
+      description: A new tool, a change to an existing one, a dashboard view, a deploy target… Example prompts you'd give your AI are especially useful.
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to work on this myself (see CONTRIBUTING.md).

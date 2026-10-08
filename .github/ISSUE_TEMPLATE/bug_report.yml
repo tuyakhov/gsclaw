@@ -1,0 +1,62 @@
+name: Bug report
+description: Something doesn't work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Never paste keys, tokens, `GOOGLE_SERVICE_ACCOUNT_JSON`, OAuth client secrets or private Search Console data.** Redact property names if you prefer.
+        Security problems: please report them privately instead ([SECURITY.md](https://github.com/tuyakhov/gsclaw/blob/main/SECURITY.md)).
+        Many setup problems are covered in [troubleshooting](https://github.com/tuyakhov/gsclaw/blob/main/docs/troubleshooting.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead? Include the exact error message.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: GSClaw version
+      description: Shown on the dashboard's Setup & health page, or `npx gsclaw --version`.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where does it run?
+      options:
+        - Vercel
+        - Netlify
+        - Cloudflare Workers
+        - Render
+        - Railway
+        - DigitalOcean
+        - Docker / VPS / Fly.io
+        - Local HTTP (gsclaw serve)
+        - Local stdio (npx gsclaw)
+    validations:
+      required: true
+  - type: dropdown
+    id: auth
+    attributes:
+      label: Authentication mode
+      options:
+        - Service account
+        - Google OAuth
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: AI client
+      description: Which client were you using, if relevant?
+      placeholder: claude.ai, Claude Code, Cursor, VS Code, ChatGPT, MCP Inspector…
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant server log lines (GSClaw redacts credentials, but please double-check).
+      render: text
