@@ -44,6 +44,8 @@ interface RequestOptions {
   siteUrl?: string;
   /** Cache weight; omit to skip caching. */
   cacheWeight?: (data: unknown) => number;
+  /** Bypass the cached value (the fresh response is still cached). */
+  fresh?: boolean;
 }
 
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
@@ -77,11 +79,13 @@ export class GscClient {
     return this.tokenSource.scopes.includes('https://www.googleapis.com/auth/webmasters');
   }
 
-  async listSites(): Promise<SiteEntry[]> {
+  /** `fresh` skips the cache read (used by the dashboard's live connectivity check). */
+  async listSites(opts: { fresh?: boolean } = {}): Promise<SiteEntry[]> {
     const data = await this.request<{ siteEntry?: SiteEntry[] }>({
       method: 'GET',
       url: `${WEBMASTERS}/sites`,
       cacheWeight: () => 1,
+      fresh: opts.fresh,
     });
     return data.siteEntry ?? [];
   }
@@ -193,7 +197,7 @@ export class GscClient {
   private async request<T>(opts: RequestOptions): Promise<T> {
     const useCache = this.cache && opts.cacheWeight && this.cacheTtlMs > 0;
     const key = useCache ? this.cacheKey(opts) : '';
-    if (useCache) {
+    if (useCache && !opts.fresh) {
       const hit = this.cache.get(key);
       if (hit !== undefined) {
         this.logger.debug('gsc cache hit', { method: opts.method, path: pathOf(opts.url) });

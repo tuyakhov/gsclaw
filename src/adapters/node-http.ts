@@ -2,6 +2,7 @@ import { serve } from 'srvx';
 import { createApp, type App } from '../core/app.js';
 import { formatConfigErrors, type Env } from '../core/config.js';
 import { VERSION } from '../core/version.js';
+import { createStaticHandler, findStaticDir } from './static.js';
 
 export interface NodeServerOptions {
   env?: Env;
@@ -33,7 +34,13 @@ export async function startNodeServer(opts: NodeServerOptions = {}): Promise<Run
   const port = opts.port ?? Number(env.PORT ?? 3000);
   const host = opts.host ?? env.HOST ?? (env.PORT ? '0.0.0.0' : '127.0.0.1');
 
-  const app = createApp(env, { name: 'node', localOnly: LOOPBACK.has(host), fetch: opts.fetch });
+  const staticDir = findStaticDir(env.GSCLAW_STATIC_DIR);
+  const app = createApp(env, {
+    name: 'node',
+    localOnly: LOOPBACK.has(host),
+    fetch: opts.fetch,
+    serveStatic: staticDir ? createStaticHandler(staticDir) : undefined,
+  });
   if (app.setupErrors.length > 0) throw new SetupError(formatConfigErrors(app.setupErrors));
 
   const server = serve({

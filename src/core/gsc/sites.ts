@@ -50,8 +50,11 @@ export function toProperty(entry: SiteEntry): Property {
   };
 }
 
-export async function listProperties(client: GscClient): Promise<Property[]> {
-  const entries = await client.listSites();
+export async function listProperties(
+  client: GscClient,
+  opts: { fresh?: boolean } = {},
+): Promise<Property[]> {
+  const entries = await client.listSites(opts);
   return entries
     .map(toProperty)
     .sort(

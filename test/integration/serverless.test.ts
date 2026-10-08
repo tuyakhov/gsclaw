@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { unstable_startWorker } from 'wrangler';
@@ -52,6 +53,8 @@ describe('cloudflare adapter (workerd via wrangler)', () => {
   let worker: Awaited<ReturnType<typeof unstable_startWorker>>;
 
   beforeAll(async () => {
+    // wrangler.toml serves dist/public as static assets; it must exist even before a build.
+    mkdirSync('dist/public', { recursive: true });
     const { unstable_startWorker } = await import('wrangler');
     worker = await unstable_startWorker({
       config: 'wrangler.toml',

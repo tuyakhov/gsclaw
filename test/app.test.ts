@@ -49,7 +49,10 @@ describe('HTTP app', () => {
       status: 'ok',
       version: expect.any(String),
     });
-    const page = await (await a.fetch(new Request(`${BASE}/`))).text();
+    const shell = await (await a.fetch(new Request(`${BASE}/`))).text();
+    expect(shell).not.toMatch(/gserviceaccount|example\.com|token/i);
+    const minimal = app({ GSCLAW_DASHBOARD: 'false' });
+    const page = await (await minimal.fetch(new Request(`${BASE}/`))).text();
     expect(page).toContain('GSClaw is running');
     expect(page).not.toMatch(/gserviceaccount|example\.com|token/i);
   });

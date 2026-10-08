@@ -2,6 +2,8 @@ import { createMcpHandler, type McpHttpHandler } from '@modelcontextprotocol/ser
 import { clientLabel } from './activity.js';
 import { loadConfig, type ConfigIssue, type Env } from './config.js';
 import { timingSafeEqual } from './crypto.js';
+import { createDashboardApi } from './dashboard-api.js';
+import { DASHBOARD_HEADERS, dashboardShell } from './dashboard-shell.js';
 import { createLogger, type Logger, type LogWriter } from './log.js';
 import { buildMcpServer } from './mcp.js';
 import { HTML_SECURITY_HEADERS, runningPage, setupPage } from './pages.js';
@@ -17,6 +19,11 @@ export interface PlatformOptions {
   /** Server is bound to loopback: enforce Host-header checks and allow localhost origins. */
   localOnly?: boolean;
   now?: () => Date;
+  /**
+   * Serves built static files (dashboard assets) for adapters without a platform CDN layer.
+   * Returns null when no file matches.
+   */
+  serveStatic?: (request: Request) => Promise<Response | null>;
 }
 
 export interface App {
@@ -120,6 +127,16 @@ export function createApp(env: Env, platform: PlatformOptions): App {
 
   const limiter = new RateLimiter(config.rateLimitPerMinute);
   const publicOrigin = config.publicBaseUrl ? new URL(config.publicBaseUrl).origin : null;
+  const dashboardApi = config.dashboard
+    ? createDashboardApi({
+        config,
+        runtime,
+        logger,
+        platform: platform.name,
+        fetch: platform.fetch,
+        now: platform.now,
+      })
+    : null;
 
   const mcp: McpHttpHandler = createMcpHandler(
     ({ authInfo }) =>
@@ -255,8 +272,19 @@ export function createApp(env: Env, platform: PlatformOptions): App {
     if (path === '/healthz') return json({ status: 'ok', version: VERSION });
     if (path === '/robots.txt') return robots();
     if (path === '/mcp' || path.startsWith('/mcp/')) return handleMcp(request, url, path, log);
-    if (path === '/' && (request.method === 'GET' || request.method === 'HEAD'))
-      return html(runningPage());
+    const isRead = request.method === 'GET' || request.method === 'HEAD';
+    if (path === '/' && isRead) {
+      return dashboardApi
+        ? new Response(dashboardShell(), { headers: DASHBOARD_HEADERS })
+        : html(runningPage());
+    }
+    if (path === '/api' || path.startsWith('/api/')) {
+      return dashboardApi ? dashboardApi.handle(request, url, path) : notFound();
+    }
+    if (isRead && platform.serveStatic) {
+      const file = await platform.serveStatic(request);
+      if (file) return file;
+    }
     return notFound();
   }
 
