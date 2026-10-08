@@ -1,0 +1,8 @@
+{
+  "siteEntry": [
+    { "siteUrl": "sc-domain:example.com", "permissionLevel": "siteOwner" },
+    { "siteUrl": "https://www.example.com/", "permissionLevel": "siteFullUser" },
+    { "siteUrl": "https://blog.example.org/", "permissionLevel": "siteRestrictedUser" },
+    { "siteUrl": "http://legacy.example.net/", "permissionLevel": "siteUnverifiedUser" }
+  ]
+}

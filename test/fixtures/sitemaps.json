@@ -1,0 +1,28 @@
+{
+  "sitemap": [
+    {
+      "path": "https://example.com/sitemap.xml",
+      "lastSubmitted": "2026-09-01T10:00:00.000Z",
+      "isPending": false,
+      "isSitemapsIndex": true,
+      "lastDownloaded": "2026-10-06T03:21:09.000Z",
+      "warnings": "0",
+      "errors": "0",
+      "contents": [{ "type": "web", "submitted": "1342", "indexed": "0" }]
+    },
+    {
+      "path": "https://example.com/blog-sitemap.xml",
+      "lastSubmitted": "2026-08-12T10:00:00.000Z",
+      "isPending": false,
+      "isSitemapsIndex": false,
+      "type": "sitemap",
+      "lastDownloaded": "2026-10-01T11:00:00.000Z",
+      "warnings": "3",
+      "errors": "2",
+      "contents": [
+        { "type": "web", "submitted": "210", "indexed": "0" },
+        { "type": "image", "submitted": "57", "indexed": "0" }
+      ]
+    }
+  ]
+}

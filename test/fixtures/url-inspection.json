@@ -1,0 +1,35 @@
+{
+  "inspectionResult": {
+    "inspectionResultLink": "https://search.google.com/search-console/inspect?resource_id=sc-domain:example.com&id=abc",
+    "indexStatusResult": {
+      "verdict": "PASS",
+      "coverageState": "Submitted and indexed",
+      "robotsTxtState": "ALLOWED",
+      "indexingState": "INDEXING_ALLOWED",
+      "lastCrawlTime": "2026-09-30T08:12:44Z",
+      "pageFetchState": "SUCCESSFUL",
+      "googleCanonical": "https://example.com/pricing",
+      "userCanonical": "https://example.com/pricing",
+      "sitemap": ["https://example.com/sitemap.xml"],
+      "referringUrls": ["https://example.com/", "https://example.com/blog/"],
+      "crawledAs": "MOBILE"
+    },
+    "mobileUsabilityResult": { "verdict": "PASS" },
+    "richResultsResult": {
+      "verdict": "PASS",
+      "detectedItems": [
+        {
+          "richResultType": "FAQ",
+          "items": [
+            {
+              "name": "Unnamed item",
+              "issues": [
+                { "issueMessage": "Missing field \"acceptedAnswer\"", "severity": "WARNING" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
