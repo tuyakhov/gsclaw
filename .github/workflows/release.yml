@@ -48,8 +48,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+      # The contributor-only preinstall guard (only-allow pnpm) must not reach users. prepack strips
+      # it from the tarball, but npm builds the registry metadata from package.json before prepack
+      # runs (0.1.1 was listed as having an install script), so remove it here and make sure no
+      # install script is left.
+      - name: Remove install scripts from the published manifest
+        run: |
+          npm pkg delete scripts.preinstall
+          node -e "const s = require('./package.json').scripts ?? {}; const found = ['preinstall', 'install', 'postinstall'].filter((k) => s[k]); if (found.length) { console.error('install scripts would be published:', found); process.exit(1) }"
       # npm, not pnpm: npm's trusted publishing and staging are only documented for its own CLI.
-      # Packing runs the prepack/postpack scripts, which strip the contributor-only preinstall.
       - run: npm stage publish --provenance
 
   docker:
