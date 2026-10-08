@@ -20,7 +20,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "gsclaw": "./dist/cli.js"
+    "gsclaw": "dist/cli.js"
   },
   "files": [
     "dist",

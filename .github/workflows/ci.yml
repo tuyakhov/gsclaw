@@ -32,6 +32,12 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # npm silently "auto-corrects" package.json at publish time (e.g. it drops a bin entry
+      # written as ./dist/cli.js, which breaks `npx gsclaw`). Fail here if it would change anything.
+      - name: npm would publish package.json unchanged
+        run: |
+          npm pkg fix
+          git diff --exit-code package.json
       - name: Packed manifest has no contributor-only preinstall guard
         run: |
           pnpm pack --pack-destination /tmp
