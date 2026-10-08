@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/tuyakhov/gsclaw/compare/gsclaw-v0.1.1...gsclaw-v0.1.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* npm no longer lists GSClaw as having an install script ([de79e07](https://github.com/tuyakhov/gsclaw/commit/de79e0794aa658f6cd1f1b32151a32a173410e07))
+
 ## [0.1.1](https://github.com/tuyakhov/gsclaw/compare/gsclaw-v0.1.0...gsclaw-v0.1.1) (2026-10-08)
 
 
