@@ -48,7 +48,10 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "sharp": "0.35.5"
+    }
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.2.0",
