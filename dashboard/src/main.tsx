@@ -1,7 +1,7 @@
 import 'uplot/dist/uPlot.min.css';
 import './styles.css';
 import { render } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, runTool, setUnauthorizedHandler } from './api.js';
 import { Logo } from './components/logo.js';
 import { ErrorBox, Loading, Notice, Toaster } from './components/ui.js';
@@ -81,6 +81,21 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
     if (current && current !== site) setSite(current);
   }, [current, site, setSite]);
 
+  // Mobile menu: closes on navigation and Escape; focus moves into it when it opens.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+  useEffect(() => setMenuOpen(false), [route]);
+  useEffect(() => {
+    if (menuOpen) firstLinkRef.current?.focus();
+  }, [menuOpen]);
+  const onNavKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && menuOpen) {
+      setMenuOpen(false);
+      toggleRef.current?.focus();
+    }
+  };
+
   const page = NAV.find((n) => n.route === route)!;
   const needsProperty = page.needsProperty;
 
@@ -108,77 +123,121 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   }
 
   return (
-    <div class="shell">
+    <div class={`shell ${menuOpen ? 'menu-open' : ''}`}>
       <a class="skip" href="#main">
         Skip to content
       </a>
-      <nav class="nav" aria-label="Main">
-        <a class="brand" href="#/overview">
-          <Logo />
-          <span>GSClaw</span>
-        </a>
-        <ul>
-          {NAV.map((n) => (
-            <li>
-              <a href={`#/${n.route}`} aria-current={n.route === route ? 'page' : undefined}>
-                {n.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <div class="content">
-        <header class="topbar">
-          {needsProperty && readable.length > 0 && (
-            <>
-              <label class="field">
-                <span class="sr-only">Property</span>
-                <select
-                  value={current}
-                  onChange={(e) => setSite((e.target as HTMLSelectElement).value)}
+      <nav class="nav" aria-label="Main" onKeyDown={onNavKeyDown}>
+        <div class="nav-head">
+          <a class="brand" href="#/overview">
+            <Logo />
+            <span>GSClaw</span>
+          </a>
+          <button
+            ref={toggleRef}
+            type="button"
+            class="menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="nav-panel"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <MenuIcon open={menuOpen} />
+          </button>
+        </div>
+        <div class="nav-panel" id="nav-panel">
+          <ul>
+            {NAV.map((n, i) => (
+              <li>
+                <a
+                  ref={i === 0 ? firstLinkRef : undefined}
+                  href={`#/${n.route}`}
+                  aria-current={n.route === route ? 'page' : undefined}
+                  onClick={() => setMenuOpen(false)}
                 >
-                  {readable.map((p) => (
-                    <option value={p.site_url}>{p.site_url}</option>
+                  {n.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <div class="nav-footer">
+            <label class="field">
+              <span class="sr-only">Theme</span>
+              <select
+                value={theme}
+                onChange={(e) => setTheme((e.target as HTMLSelectElement).value as Theme)}
+              >
+                {THEMES.map((t) => (
+                  <option value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" class="btn" onClick={onSignOut}>
+              Sign out
+            </button>
+          </div>
+        </div>
+      </nav>
+      {menuOpen && (
+        <div class="nav-backdrop" aria-hidden="true" onClick={() => setMenuOpen(false)} />
+      )}
+      <div class="content">
+        {needsProperty && readable.length > 0 && (
+          <header class="topbar">
+            <label class="field">
+              <span class="sr-only">Property</span>
+              <select
+                value={current}
+                onChange={(e) => setSite((e.target as HTMLSelectElement).value)}
+              >
+                {readable.map((p) => (
+                  <option value={p.site_url}>{p.site_url}</option>
+                ))}
+              </select>
+            </label>
+            {route !== 'indexing' && (
+              <label class="field">
+                <span class="sr-only">Date range</span>
+                <select
+                  value={range}
+                  onChange={(e) => setRange((e.target as HTMLSelectElement).value)}
+                >
+                  {RANGES.map((r) => (
+                    <option value={r.value}>{r.label}</option>
                   ))}
                 </select>
               </label>
-              {route !== 'indexing' && (
-                <label class="field">
-                  <span class="sr-only">Date range</span>
-                  <select
-                    value={range}
-                    onChange={(e) => setRange((e.target as HTMLSelectElement).value)}
-                  >
-                    {RANGES.map((r) => (
-                      <option value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
-            </>
-          )}
-          <span class="spacer" />
-          <label class="field">
-            <span class="sr-only">Theme</span>
-            <select
-              value={theme}
-              onChange={(e) => setTheme((e.target as HTMLSelectElement).value as Theme)}
-            >
-              {THEMES.map((t) => (
-                <option value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </label>
-          <button type="button" class="btn btn-small" onClick={onSignOut}>
-            Sign out
-          </button>
-        </header>
+            )}
+          </header>
+        )}
         <main id="main" tabIndex={-1}>
           {content}
         </main>
       </div>
       <Toaster />
     </div>
+  );
+}
+
+function MenuIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {open ? (
+        <path
+          d="M6 6l12 12M18 6L6 18"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        />
+      ) : (
+        <path
+          d="M4 7h16M4 12h16M4 17h16"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        />
+      )}
+    </svg>
   );
 }
 

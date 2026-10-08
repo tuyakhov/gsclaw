@@ -35,3 +35,6 @@ credentials*.json
 
 # local Claude Code launch config
 .claude/launch.json
+
+# Playwright MCP session artifacts
+.playwright-mcp/

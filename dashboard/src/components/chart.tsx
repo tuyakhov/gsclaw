@@ -24,11 +24,13 @@ export function TrendChart({ points, theme }: { points: TrendPoint[]; theme: 'li
       points.map((p) => p.clicks),
       points.map((p) => p.impressions),
     ];
-    const axis = (scale: string, stroke: string, side?: 1): uPlot.Axis => ({
+    // uPlot sides: 1 = right, 2 = bottom, 3 = left. Set explicitly; a scale-bound axis without a
+    // side can end up horizontal and steal plot height.
+    const axis = (scale: string, stroke: string, right = false): uPlot.Axis => ({
       scale,
-      side,
+      side: right ? 1 : 3,
       stroke,
-      grid: { show: side === undefined, stroke: color('--grid'), width: 1 },
+      grid: { show: !right, stroke: color('--grid'), width: 1 },
       ticks: { show: false },
       values: (_u, values) =>
         values.map((v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : fmtInt(v))),
@@ -65,12 +67,13 @@ export function TrendChart({ points, theme }: { points: TrendPoint[]; theme: 'li
         ],
         axes: [
           {
+            side: 2,
             stroke: color('--muted'),
             grid: { stroke: color('--grid'), width: 1 },
             ticks: { show: false },
           },
           axis('clicks', color('--clicks')),
-          axis('impressions', color('--impressions'), 1),
+          axis('impressions', color('--impressions'), true),
         ],
       },
       data,
