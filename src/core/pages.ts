@@ -22,8 +22,8 @@ export function layout(title: string, body: string): string {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><title>${escape(title)}</title>
 <style>
-:root{color-scheme:light dark;--fg:#1c1b1a;--muted:#6b6862;--bg:#faf9f7;--card:#fff;--line:#e6e3de;--accent:#c2410c}
-@media (prefers-color-scheme:dark){:root{--fg:#ecebe8;--muted:#a19e98;--bg:#151413;--card:#1e1d1b;--line:#33312e;--accent:#fb923c}}
+:root{color-scheme:light dark;--fg:#1c1b1a;--muted:#6b6862;--bg:#faf9f7;--card:#fff;--line:#e6e3de;--accent:#0d9488;--accent-text:#fff}
+@media (prefers-color-scheme:dark){:root{--fg:#ecebe8;--muted:#a19e98;--bg:#151413;--card:#1e1d1b;--line:#33312e;--accent:#2dd4bf;--accent-text:#062b27}}
 body{margin:0;font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box}
 main{max-width:560px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px}
 h1{font-size:1.25rem;margin:0 0 .5rem}p{margin:.5rem 0;color:var(--muted)}a{color:var(--accent)}
@@ -32,7 +32,7 @@ form{display:grid;gap:10px;margin-top:16px}label{font-weight:600;font-size:.9rem
 input{font:inherit;height:40px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 button,.button{font:inherit;font-weight:600;height:40px;border-radius:8px;padding:0 16px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
-.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
 .client{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0;color:var(--fg)}
 .client small{display:block;color:var(--muted)}.warn{color:#b45309}.error{color:#b91c1c;margin:0}
 </style></head><body><main>${body}</main></body></html>`;

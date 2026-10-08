@@ -39,6 +39,7 @@ export function Setup() {
   if (!s) return <Loading label="Checking your setup…" />;
 
   const isServiceAccount = s.identity.kind === 'service_account';
+  const oauth = s.oauth;
   return (
     <>
       <h1>Setup & health</h1>
@@ -116,8 +117,12 @@ export function Setup() {
                 <Badge tone="ok">Disabled (read-only)</Badge>
               )}
             </dd>
-            <dt>Secret path</dt>
-            <dd>{s.secret_path_enabled ? 'Enabled (/mcp/<token>)' : 'Disabled'}</dd>
+            {!oauth && (
+              <>
+                <dt>Secret path</dt>
+                <dd>{s.secret_path_enabled ? 'Enabled (/mcp/<token>)' : 'Disabled'}</dd>
+              </>
+            )}
             <dt>Rate limit</dt>
             <dd>{s.rate_limit_per_minute ? `${s.rate_limit_per_minute} requests/min` : 'Off'}</dd>
             <dt>Public URL</dt>
@@ -125,6 +130,38 @@ export function Setup() {
           </dl>
         </Card>
       </div>
+
+      {oauth && (
+        <Card title="Google sign-in">
+          <dl class="facts">
+            <dt>Redirect URI</dt>
+            <dd class="row">
+              <code class="break">{oauth.redirect_uri}</code>
+              <CopyButton small text={oauth.redirect_uri} />
+            </dd>
+            <dt>Who can sign in</dt>
+            <dd>
+              {oauth.open_to_anyone ? (
+                <Badge tone="warn">Any Google account</Badge>
+              ) : (
+                [
+                  oauth.allowed_domains.length > 0 &&
+                    `Accounts at ${oauth.allowed_domains.join(', ')}`,
+                  oauth.allowed_email_count > 0 &&
+                    `${oauth.allowed_email_count} allowed email address${oauth.allowed_email_count === 1 ? '' : 'es'}`,
+                ]
+                  .filter(Boolean)
+                  .join('; ')
+              )}
+            </dd>
+          </dl>
+          <p class="small muted">
+            Register the redirect URI on your OAuth client in Google Cloud Console → APIs & Services
+            → Credentials. Everyone signs in with their own Google account and sees only the
+            properties that account can access in Search Console.
+          </p>
+        </Card>
+      )}
 
       <Card title="Properties">
         {s.google.ok ? (
@@ -134,8 +171,9 @@ export function Setup() {
             rows={s.google.properties}
             empty={
               <Notice tone="warn">
-                No properties are visible yet. Add {s.identity.email} as a user on your Search
-                Console properties, then check again.
+                {isServiceAccount
+                  ? `No properties are visible yet. Add ${s.identity.email} as a user on your Search Console properties, then check again.`
+                  : `${s.identity.email} can't see any Search Console properties. Ask a property owner to add this account in Search Console → Settings → Users and permissions.`}
               </Notice>
             }
           />

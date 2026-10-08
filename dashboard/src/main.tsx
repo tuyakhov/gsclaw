@@ -2,7 +2,7 @@ import 'uplot/dist/uPlot.min.css';
 import './styles.css';
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { api, runTool, setUnauthorizedHandler } from './api.js';
+import { api, runTool, setUnauthorizedHandler, type SessionInfo } from './api.js';
 import { Logo } from './components/logo.js';
 import { ErrorBox, Loading, Notice, Toaster } from './components/ui.js';
 import { Activity } from './pages/activity.js';
@@ -46,28 +46,35 @@ const THEMES: { value: Theme; label: string }[] = [
 ];
 
 function App() {
-  const [session, setSession] = useState<'loading' | 'in' | 'out'>('loading');
+  const [session, setSession] = useState<SessionInfo | 'loading' | 'error'>('loading');
+  const load = () => api<SessionInfo>('/api/session').then(setSession, () => setSession('error'));
   useEffect(() => {
-    setUnauthorizedHandler(() => setSession('out'));
-    api<{ authenticated: boolean }>('/api/session').then(
-      (s) => setSession(s.authenticated ? 'in' : 'out'),
-      () => setSession('out'),
+    setUnauthorizedHandler(() =>
+      setSession((s) => (typeof s === 'object' ? { ...s, authenticated: false } : s)),
     );
+    void load();
   }, []);
 
   if (session === 'loading') return <Loading label="Loading GSClaw…" />;
-  if (session === 'out') return <Login onSignedIn={() => setSession('in')} />;
+  if (session === 'error')
+    return (
+      <main class="login" id="main">
+        <ErrorBox error="Couldn't reach this GSClaw server." onRetry={() => void load()} />
+      </main>
+    );
+  if (!session.authenticated) return <Login login={session.login} onSignedIn={() => void load()} />;
   return (
     <Dashboard
+      email={session.email}
       onSignOut={async () => {
         await api('/api/session', { method: 'DELETE' }).catch(() => undefined);
-        setSession('out');
+        setSession({ ...session, authenticated: false, email: null });
       }}
     />
   );
 }
 
-function Dashboard({ onSignOut }: { onSignOut: () => void }) {
+function Dashboard({ email, onSignOut }: { email: string | null; onSignOut: () => void }) {
   const route = useRoute(storage.get('site') ? 'overview' : 'setup');
   const [theme, setTheme, effectiveTheme] = useTheme();
   const [site, setSite] = usePersisted('site', '');
@@ -161,6 +168,12 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
             ))}
           </ul>
           <div class="nav-footer">
+            {email && (
+              <p class="nav-user small muted" title={email}>
+                Signed in as
+                <strong>{email}</strong>
+              </p>
+            )}
             <label class="field">
               <span class="sr-only">Theme</span>
               <select

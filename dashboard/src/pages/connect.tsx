@@ -28,20 +28,67 @@ interface Snippet {
   needsToken: boolean;
 }
 
-function snippets(info: ConnectInfo): Snippet[] {
-  const url = info.mcp_url;
-  const list: Snippet[] = [];
-  if (info.secret_path_enabled) {
-    list.push({
+const json = (value: unknown) => JSON.stringify(value, null, 2);
+
+/** Google OAuth mode: every client signs in with Google, so snippets carry no secrets. */
+function oauthSnippets(url: string): Snippet[] {
+  return [
+    {
       id: 'claude-ai',
       title: 'claude.ai, Claude Desktop & mobile',
       description:
-        'Settings → Connectors → Add custom connector. Paste this URL as the server URL and leave the OAuth fields empty. Connectors sync to Claude Desktop and mobile.',
-      build: (t) => `${url}/${t}`,
-      needsToken: true,
-    });
-  }
-  list.push(
+        'Settings → Connectors → Add custom connector. Paste this URL and click Connect; Claude opens a Google sign-in. Connectors sync to Claude Desktop and mobile.',
+      build: () => url,
+      needsToken: false,
+    },
+    {
+      id: 'claude-code',
+      title: 'Claude Code',
+      description: 'Run in your terminal, then run /mcp in Claude Code to sign in with Google.',
+      lang: 'bash',
+      build: () => `claude mcp add --transport http gsclaw ${url}`,
+      needsToken: false,
+    },
+    {
+      id: 'cursor',
+      title: 'Cursor',
+      description:
+        'Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project). Cursor asks you to sign in.',
+      lang: 'json',
+      build: () => json({ mcpServers: { gsclaw: { url } } }),
+      needsToken: false,
+    },
+    {
+      id: 'vscode',
+      title: 'VS Code',
+      description: 'Add to .vscode/mcp.json. VS Code asks you to sign in when the server starts.',
+      lang: 'json',
+      build: () => json({ servers: { gsclaw: { type: 'http', url } } }),
+      needsToken: false,
+    },
+    {
+      id: 'chatgpt',
+      title: 'ChatGPT',
+      description:
+        'Add a custom connector (developer mode) with this URL and OAuth authentication.',
+      build: () => url,
+      needsToken: false,
+    },
+  ];
+}
+
+/** Service-account mode: OAuth sign-in with the access token, headers, or the secret URL. */
+function serviceAccountSnippets(info: ConnectInfo): Snippet[] {
+  const url = info.mcp_url;
+  const list: Snippet[] = [
+    {
+      id: 'claude-ai',
+      title: 'claude.ai, Claude Desktop & mobile',
+      description:
+        'Settings → Connectors → Add custom connector. Paste this URL and click Connect; on the GSClaw page that opens, enter your access token to approve. Connectors sync to Claude Desktop and mobile.',
+      build: () => url,
+      needsToken: false,
+    },
     {
       id: 'claude-code',
       title: 'Claude Code',
@@ -57,11 +104,7 @@ function snippets(info: ConnectInfo): Snippet[] {
       description: 'Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project).',
       lang: 'json',
       build: (t) =>
-        JSON.stringify(
-          { mcpServers: { gsclaw: { url, headers: { Authorization: `Bearer ${t}` } } } },
-          null,
-          2,
-        ),
+        json({ mcpServers: { gsclaw: { url, headers: { Authorization: `Bearer ${t}` } } } }),
       needsToken: true,
     },
     {
@@ -70,36 +113,40 @@ function snippets(info: ConnectInfo): Snippet[] {
       description: 'Add to .vscode/mcp.json. VS Code prompts for the token and stores it securely.',
       lang: 'json',
       build: () =>
-        JSON.stringify(
-          {
-            inputs: [
-              {
-                type: 'promptString',
-                id: 'gsclaw-token',
-                description: 'GSClaw access token',
-                password: true,
-              },
-            ],
-            servers: {
-              gsclaw: {
-                type: 'http',
-                url,
-                headers: { Authorization: 'Bearer ${input:gsclaw-token}' },
-              },
+        json({
+          inputs: [
+            {
+              type: 'promptString',
+              id: 'gsclaw-token',
+              description: 'GSClaw access token',
+              password: true,
+            },
+          ],
+          servers: {
+            gsclaw: {
+              type: 'http',
+              url,
+              headers: { Authorization: 'Bearer ${input:gsclaw-token}' },
             },
           },
-          null,
-          2,
-        ),
+        }),
       needsToken: false,
     },
-  );
-  if (info.secret_path_enabled) {
-    list.push({
+    {
       id: 'chatgpt',
       title: 'ChatGPT',
       description:
-        'Add a custom MCP server (developer mode / plugins) with this URL and "No authentication".',
+        'Add a custom connector (developer mode) with this URL and OAuth authentication, then approve with your access token.',
+      build: () => url,
+      needsToken: false,
+    },
+  ];
+  if (info.secret_path_enabled) {
+    list.push({
+      id: 'secret-url',
+      title: 'Secret URL (clients without OAuth or custom headers)',
+      description:
+        'The token is part of the URL, so anyone who sees it has access. Prefer the options above when your client supports them.',
       build: (t) => `${url}/${t}`,
       needsToken: true,
     });
@@ -111,19 +158,15 @@ function snippets(info: ConnectInfo): Snippet[] {
       'Runs GSClaw on your machine instead of this deployment. Uses your service-account key file directly; no access token needed.',
     lang: 'json',
     build: () =>
-      JSON.stringify(
-        {
-          mcpServers: {
-            gsclaw: {
-              command: 'npx',
-              args: ['-y', 'gsclaw'],
-              env: { GOOGLE_APPLICATION_CREDENTIALS: '/path/to/service-account.json' },
-            },
+      json({
+        mcpServers: {
+          gsclaw: {
+            command: 'npx',
+            args: ['-y', 'gsclaw'],
+            env: { GOOGLE_APPLICATION_CREDENTIALS: '/path/to/service-account.json' },
           },
         },
-        null,
-        2,
-      ),
+      }),
     needsToken: false,
   });
   return list;
@@ -137,34 +180,35 @@ export function Connect() {
   if (info.error) return <ErrorBox error={info.error} onRetry={info.reload} />;
   if (!info.data) return <Loading />;
 
+  const isOAuth = info.data.auth_mode === 'oauth';
+  const list = isOAuth ? oauthSnippets(info.data.mcp_url) : serviceAccountSnippets(info.data);
+  const hasSecrets = list.some((s) => s.needsToken);
   const shown = (s: Snippet) => s.build(revealed && secret.token ? secret.token : MASK);
   return (
     <>
       <h1>Connect</h1>
       <p class="sub">
-        Your MCP endpoint is <code>{info.data.mcp_url}</code>. Snippets include your access token,
-        which is hidden until you reveal it; copying always includes the real value.
+        Your MCP endpoint is <code>{info.data.mcp_url}</code>.{' '}
+        {isOAuth
+          ? 'Each person signs in with their own Google account and only sees the properties that account can access.'
+          : 'Some snippets include your access token, which is hidden until you reveal it; copying always includes the real value.'}
       </p>
-      <div class="row">
-        <button
-          type="button"
-          class="btn"
-          aria-pressed={revealed}
-          onClick={async () => {
-            if (!revealed) await secret.load();
-            setRevealed(!revealed);
-          }}
-        >
-          {revealed ? 'Hide secrets' : 'Reveal secrets'}
-        </button>
-      </div>
-      {!info.data.secret_path_enabled && (
-        <Notice tone="warn">
-          The secret path is disabled (GSCLAW_SECRET_PATH=false), so clients that can't send
-          headers, such as claude.ai, can't connect yet.
-        </Notice>
+      {hasSecrets && (
+        <div class="row">
+          <button
+            type="button"
+            class="btn"
+            aria-pressed={revealed}
+            onClick={async () => {
+              if (!revealed) await secret.load();
+              setRevealed(!revealed);
+            }}
+          >
+            {revealed ? 'Hide secrets' : 'Reveal secrets'}
+          </button>
+        </div>
       )}
-      {snippets(info.data).map((s) => (
+      {list.map((s) => (
         <Card
           title={s.title}
           actions={
@@ -180,11 +224,18 @@ export function Connect() {
           </pre>
         </Card>
       ))}
-      <Notice>
-        Treat these like passwords. Anyone with the token can read this deployment's Search Console
-        data. Rotate it by changing GSCLAW_ACCESS_TOKEN and redeploying; that also signs everyone
-        out of this dashboard.
-      </Notice>
+      {isOAuth ? (
+        <Notice>
+          Access lasts until you disconnect the client, or remove GSClaw under Google Account →
+          Security → Third-party connections. Changing GSCLAW_ENCRYPTION_KEY signs everyone out.
+        </Notice>
+      ) : (
+        <Notice>
+          Treat the access token like a password: anyone with it can read this deployment's Search
+          Console data. Rotate it by changing GSCLAW_ACCESS_TOKEN and redeploying; that also
+          disconnects every OAuth client and signs everyone out of this dashboard.
+        </Notice>
+      )}
     </>
   );
 }

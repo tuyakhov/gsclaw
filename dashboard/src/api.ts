@@ -40,10 +40,25 @@ export interface Status {
   public_base_url: string | null;
   rate_limit_per_minute: number;
   activity_persistent: boolean;
+  /** Google OAuth mode only. */
+  oauth: {
+    redirect_uri: string;
+    allowed_domains: string[];
+    allowed_email_count: number;
+    open_to_anyone: boolean;
+  } | null;
   google:
     | { ok: true; latency_ms: number; properties: Property[] }
     | { ok: false; latency_ms: number; error: string; kind: string };
   warnings: string[];
+}
+
+export interface SessionInfo {
+  authenticated: boolean;
+  auth_mode: 'service_account' | 'oauth';
+  /** How people sign in to the dashboard. */
+  login: 'token' | 'google';
+  email: string | null;
 }
 
 export interface ConnectInfo {
