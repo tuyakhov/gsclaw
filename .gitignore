@@ -32,3 +32,6 @@ credentials*.json
 *-sa.json
 *.p12
 *.key
+
+# local Claude Code launch config
+.claude/launch.json
