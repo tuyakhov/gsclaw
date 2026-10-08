@@ -25,3 +25,10 @@ yarn.lock
 
 # prepack backup (scripts/manifest.mjs)
 package.json.prepack
+
+# Google credentials downloaded from Cloud Console
+client_secret*.json
+credentials*.json
+*-sa.json
+*.p12
+*.key
