@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/tuyakhov/gsclaw/compare/gsclaw-v0.1.0...gsclaw-v0.1.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* keep the gsclaw command when publishing with npm ([f95e5f1](https://github.com/tuyakhov/gsclaw/commit/f95e5f1493b9749e00099b828931dd2d6c5dcbfb))
+
 ## 0.1.0 (2026-10-08)
 
 
