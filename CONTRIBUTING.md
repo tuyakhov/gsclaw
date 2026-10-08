@@ -82,4 +82,20 @@ test with every fix, ideally one that fails without it.
 - Dependencies: avoid new runtime dependencies (the server has three), and keep the dashboard
   under its 100 KB budget.
 
+## Releasing
+
+For maintainers. release-please keeps a release pull request open with the next version and
+changelog. Merging it:
+
+1. tags the release and publishes the GitHub release;
+2. pushes the Docker image to `ghcr.io/tuyakhov/gsclaw` (`X.Y.Z`, `X.Y` and `latest`);
+3. **stages** the npm package. npm uses trusted publishing (no token is stored in GitHub) with
+   staging only, so the new version isn't installable until a maintainer approves it with 2FA:
+   on npmjs.com (package → staged versions), or with `npm stage list gsclaw` then
+   `npm stage approve <stage-id>`. Approval becomes available once npm's malware scan finishes.
+
+A staged version already uses up its version number. If a release goes wrong, reject the staged
+version (`npm stage reject <stage-id>`) and release a new patch version rather than re-running the
+job.
+
 By contributing you agree that your contributions are licensed under the [MIT License](LICENSE).
