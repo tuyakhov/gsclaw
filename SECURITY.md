@@ -26,7 +26,8 @@ Security fixes go into the latest minor release.
   don't need it. Rotating the token revokes every credential issued with it.
 - Google OAuth mode: each person signs in with Google and GSClaw calls Search Console with their
   own credentials, so nobody sees more than their Google account can. Optional email/domain
-  allowlists (`ALLOWED_GOOGLE_EMAILS`, `ALLOWED_GOOGLE_DOMAINS`) require a verified email.
+  allowlists (`ALLOWED_GOOGLE_EMAILS`, `ALLOWED_GOOGLE_DOMAINS`) require a Google-verified email
+  and are checked on every request, so removing someone takes effect as soon as you redeploy.
 - Built-in OAuth 2.1 authorization server: public clients only, PKCE (S256) required, redirect
   URIs limited to loopback and known MCP clients unless `GSCLAW_OAUTH_REDIRECT_HOSTS` adds more,
   access tokens bound to this deployment's `/mcp` resource (RFC 8707) and valid for at most an
