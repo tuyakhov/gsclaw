@@ -1,0 +1,7 @@
+dist
+coverage
+pnpm-lock.yaml
+node_modules
+.wrangler
+.vercel
+.netlify

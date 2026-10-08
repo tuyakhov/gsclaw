@@ -1,0 +1,72 @@
+{
+  "name": "gsclaw",
+  "version": "0.0.0",
+  "description": "Sink your claws into your Search Console data. A remote-first, one-click-deployable Google Search Console MCP server.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "google-search-console",
+    "search-console",
+    "seo",
+    "claude",
+    "mcp-server"
+  ],
+  "homepage": "https://github.com/tuyakhov/gsclaw#readme",
+  "bugs": "https://github.com/tuyakhov/gsclaw/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tuyakhov/gsclaw.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "gsclaw": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "build": "tsdown",
+    "dev": "tsx watch src/cli.ts serve",
+    "start": "node dist/cli.js serve",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "inspector": "npx @modelcontextprotocol/inspector",
+    "prepack": "node scripts/manifest.mjs strip",
+    "postpack": "node scripts/manifest.mjs restore"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.2.0",
+    "srvx": "^1.0.5",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/client": "^2.2.0",
+    "@types/node": "^22.20.4",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "tsdown": "^0.23.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^4.1.11"
+  }
+}
