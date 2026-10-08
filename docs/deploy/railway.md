@@ -19,7 +19,13 @@ Click **Deploy on Railway** in the README, fill in `GOOGLE_SERVICE_ACCOUNT_JSON`
    - `GOOGLE_SERVICE_ACCOUNT_JSON`: no default, description "Service-account key JSON (raw or
      base64). See the README quickstart." (required)
    - `GSCLAW_ACCESS_TOKEN`: default `${{ secret(64, "abcdef0123456789") }}` (auto-generated)
-4. Service settings: healthcheck path `/healthz`; enable a public domain.
+   - `PORT`: `3000` (pins the port so it always matches the HTTP proxy below)
+4. Service settings:
+   - Networking → **Add HTTP Proxy** with port `3000` (this creates the public domain). Do not add
+     a TCP proxy; GSClaw only serves HTTP.
+   - Root directory, pre-deploy command and custom start command: leave empty (the Dockerfile's
+     `CMD` runs `node dist/cli.js serve`).
+   - Healthcheck path: `/healthz`.
 5. Publish (marketplace listing is optional), copy the template code, and replace
    `RAILWAY_TEMPLATE_CODE` in the README's Railway button URL.
 
