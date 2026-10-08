@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, typecheck, test, build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Packed manifest has no contributor-only preinstall guard
+        run: |
+          pnpm pack --pack-destination /tmp
+          tar -xzf /tmp/gsclaw-*.tgz -C /tmp
+          node -e "const p=require('/tmp/package/package.json'); if (p.scripts && p.scripts.preinstall) { console.error('preinstall leaked into the package'); process.exit(1) }"
+          test -x /tmp/package/dist/cli.js
