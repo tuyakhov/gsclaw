@@ -3,6 +3,9 @@ import { clientLabel } from './activity.js';
 import { loadConfig, type ConfigIssue, type Env } from './config.js';
 import { timingSafeEqual } from './crypto.js';
 import { createDashboardApi } from './dashboard-api.js';
+import { createOAuthServer } from './oauth/server.js';
+import { OWNER, type Principal } from './principal.js';
+import { createSealer } from './seal.js';
 import { DASHBOARD_HEADERS, dashboardShell } from './dashboard-shell.js';
 import { createLogger, type Logger, type LogWriter } from './log.js';
 import { buildMcpServer } from './mcp.js';
@@ -125,28 +128,55 @@ export function createApp(env: Env, platform: PlatformOptions): App {
   const { logger } = runtime;
   for (const warning of loaded.warnings) logger.warn(warning);
 
+  const now = platform.now ?? (() => new Date());
+  const oauth = createOAuthServer({
+    config,
+    sealer: createSealer(config.sealingSecret!, () => now().getTime()),
+    logger,
+    fetch: platform.fetch ?? ((input, init) => fetch(input, init)),
+    now,
+  });
   const limiter = new RateLimiter(config.rateLimitPerMinute);
   const publicOrigin = config.publicBaseUrl ? new URL(config.publicBaseUrl).origin : null;
+
+  /**
+   * Public base URL for OAuth metadata and token audiences: PUBLIC_BASE_URL (or the platform's
+   * detected URL), else the forwarded or request origin.
+   */
+  const baseUrl = (request: Request, url: URL): string => {
+    if (config.publicBaseUrl) return config.publicBaseUrl;
+    const proto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+    const host = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+    if (proto && host && /^https?$/.test(proto)) return `${proto}://${host}`;
+    return url.origin;
+  };
+
   const dashboardApi = config.dashboard
     ? createDashboardApi({
         config,
         runtime,
+        oauth,
         logger,
         platform: platform.name,
         fetch: platform.fetch,
         now: platform.now,
+        baseUrl,
       })
     : null;
 
   const mcp: McpHttpHandler = createMcpHandler(
-    ({ authInfo }) =>
-      buildMcpServer({
-        tools: runtime.tools,
-        ctx: runtime.ctx,
+    ({ authInfo }) => {
+      const principal = authInfo?.extra?.principal as Principal;
+      const session = runtime.sessionFor(principal);
+      return buildMcpServer({
+        tools: session.tools,
+        ctx: session.ctx,
         logger,
         activity: runtime.activity,
         client: typeof authInfo?.extra?.client === 'string' ? authInfo.extra.client : 'unknown',
-      }),
+        user: principal.kind === 'user' ? principal.email : undefined,
+      });
+    },
     {
       legacy: 'stateless',
       responseMode: 'auto',
@@ -167,6 +197,54 @@ export function createApp(env: Env, platform: PlatformOptions): App {
   const corsHeaders = (origin: string | null): Record<string, string> =>
     origin ? { 'access-control-allow-origin': origin, vary: 'Origin', ...MCP_CORS_HEADERS } : {};
 
+  /**
+   * Resolves the caller of /mcp. Service-account mode: the static access token, the secret path, or
+   * a GSClaw-issued OAuth token (owner sign-in). OAuth mode: a GSClaw-issued token for a Google user.
+   */
+  async function authenticate(
+    request: Request,
+    path: string,
+    base: string,
+  ): Promise<Principal | Response> {
+    if (path !== '/mcp') {
+      const secret = path.slice('/mcp/'.length);
+      // Wrong secret paths are indistinguishable from any other unknown URL.
+      if (
+        config.authMode !== 'service_account' ||
+        !config.secretPath ||
+        secret.includes('/') ||
+        !(await timingSafeEqual(safeDecode(secret), config.accessToken!))
+      ) {
+        return notFound();
+      }
+      return { ...OWNER, via: 'secret_path' };
+    }
+
+    const header = request.headers.get('authorization') ?? '';
+    const token = /^Bearer\s+(.+)$/i.exec(header)?.[1]?.trim();
+    if (token) {
+      if (
+        config.authMode === 'service_account' &&
+        (await timingSafeEqual(token, config.accessToken!))
+      ) {
+        return OWNER;
+      }
+      const principal = await oauth.verifyAccessToken(token, base);
+      if (principal) return principal;
+    }
+    const hint =
+      config.authMode === 'oauth'
+        ? 'Sign in with OAuth (your MCP client does this automatically).'
+        : "Send 'Authorization: Bearer <GSCLAW_ACCESS_TOKEN>' or sign in with OAuth.";
+    return json(
+      { error: 'invalid_token', error_description: `Missing or invalid credentials. ${hint}` },
+      401,
+      {
+        'www-authenticate': oauth.challenge(base, token ? 'invalid_token' : undefined),
+      },
+    );
+  }
+
   async function handleMcp(
     request: Request,
     url: URL,
@@ -186,49 +264,20 @@ export function createApp(env: Env, platform: PlatformOptions): App {
     }
     if (platform.localOnly) {
       const host = hostnameOf(request.headers.get('host'));
-      if (!host || !LOOPBACK_HOSTS.has(host))
+      if (!host || !LOOPBACK_HOSTS.has(host)) {
         return json({ error: 'forbidden', error_description: 'Invalid Host header.' }, 403);
+      }
     }
     if (request.method === 'OPTIONS')
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
 
-    // Authenticate: bearer header on /mcp, or the secret path /mcp/<token>.
-    const accessToken = config.accessToken!;
-    let via: 'bearer' | 'secret_path';
-    if (path === '/mcp') {
-      const header = request.headers.get('authorization') ?? '';
-      const token = /^Bearer\s+(.+)$/i.exec(header)?.[1]?.trim();
-      if (!token || !(await timingSafeEqual(token, accessToken))) {
-        return json(
-          {
-            error: 'invalid_token',
-            error_description:
-              "Missing or invalid credentials. Send 'Authorization: Bearer <GSCLAW_ACCESS_TOKEN>'.",
-          },
-          401,
-          {
-            'www-authenticate': token
-              ? 'Bearer realm="gsclaw", error="invalid_token"'
-              : 'Bearer realm="gsclaw"',
-            ...corsHeaders(origin),
-          },
-        );
-      }
-      via = 'bearer';
-    } else {
-      const secret = path.slice('/mcp/'.length);
-      // Wrong secret paths are indistinguishable from any other unknown URL.
-      if (
-        !config.secretPath ||
-        secret.includes('/') ||
-        !(await timingSafeEqual(safeDecode(secret), accessToken))
-      ) {
-        return notFound();
-      }
-      via = 'secret_path';
+    const principal = await authenticate(request, path, baseUrl(request, url));
+    if (principal instanceof Response) {
+      for (const [k, v] of Object.entries(corsHeaders(origin))) principal.headers.set(k, v);
+      return principal;
     }
 
-    const limit = limiter.check('owner');
+    const limit = limiter.check(principal.sub);
     if (!limit.ok) {
       return json(
         { error: 'rate_limited', error_description: 'Too many requests. Slow down and retry.' },
@@ -254,9 +303,12 @@ export function createApp(env: Env, platform: PlatformOptions): App {
     const response = await mcp.fetch(clean, {
       authInfo: {
         token: 'redacted',
-        clientId: 'owner',
-        scopes: runtime.tools.some((t) => t.write) ? ['read', 'write'] : ['read'],
-        extra: { client: clientLabel(request.headers.get('user-agent')), via },
+        clientId: principal.clientId ?? principal.sub,
+        scopes: principal.scopes,
+        extra: {
+          principal,
+          client: principal.clientName ?? clientLabel(request.headers.get('user-agent')),
+        },
       },
     });
     const out = new Response(response.body, response);
@@ -272,6 +324,8 @@ export function createApp(env: Env, platform: PlatformOptions): App {
     if (path === '/healthz') return json({ status: 'ok', version: VERSION });
     if (path === '/robots.txt') return robots();
     if (path === '/mcp' || path.startsWith('/mcp/')) return handleMcp(request, url, path, log);
+    const oauthResponse = await oauth.handle(request, url, path, baseUrl(request, url));
+    if (oauthResponse) return oauthResponse;
     const isRead = request.method === 'GET' || request.method === 'HEAD';
     if (path === '/' && isRead) {
       return dashboardApi
@@ -295,7 +349,7 @@ export function createApp(env: Env, platform: PlatformOptions): App {
     async fetch(request) {
       const started = Date.now();
       const url = new URL(request.url);
-      // Never log the secret path segment.
+      // Never log the secret path segment or OAuth query strings.
       const logPath = url.pathname.startsWith('/mcp/') ? '/mcp/<secret>' : url.pathname;
       const log = logger.child({ method: request.method, path: logPath });
       let response: Response;

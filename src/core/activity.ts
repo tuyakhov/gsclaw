@@ -7,6 +7,8 @@ export interface ActivityEntry {
   ms: number;
   ok: boolean;
   error_kind?: string;
+  /** Signed-in Google user (OAuth mode); used to show each person only their own calls. */
+  user?: string;
 }
 
 /**

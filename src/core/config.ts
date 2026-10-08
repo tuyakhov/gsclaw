@@ -13,11 +13,29 @@ export interface ServiceAccountKey {
   token_uri?: string;
 }
 
+export interface GoogleOAuthConfig {
+  clientId: string;
+  clientSecret: string;
+  /** Lower-cased emails allowed to sign in (empty = no email restriction). */
+  allowedEmails: string[];
+  /** Lower-cased email domains allowed to sign in (empty = no domain restriction). */
+  allowedDomains: string[];
+}
+
 export interface Config {
   authMode: AuthMode;
   serviceAccount?: ServiceAccountKey;
   /** Shared secret clients present in service-account mode (bearer header or secret path). */
   accessToken?: string;
+  /** Google OAuth (multi-user) mode settings. */
+  googleOAuth?: GoogleOAuthConfig;
+  /**
+   * Seals OAuth tokens, codes and dashboard sessions: GSCLAW_ENCRYPTION_KEY and, in service-account
+   * mode, the access token. Rotating either revokes everything issued with it. Absent for stdio.
+   */
+  sealingSecret?: string;
+  /** Extra hosts allowed as OAuth redirect targets (besides the built-in client list). */
+  oauthRedirectHosts: string[];
   publicBaseUrl?: string;
   allowWrites: boolean;
   dashboard: boolean;
@@ -79,9 +97,10 @@ export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResu
     errors.push({
       message:
         'No authentication mode is configured, so GSClaw refuses to start (it never runs open). ' +
-        'Set GOOGLE_SERVICE_ACCOUNT_JSON' +
-        (opts.transport === 'http' ? ' and GSCLAW_ACCESS_TOKEN' : '') +
-        ` (service-account mode). See ${SETUP_DOCS_URL}`,
+        (opts.transport === 'http'
+          ? 'Set GOOGLE_SERVICE_ACCOUNT_JSON and GSCLAW_ACCESS_TOKEN (service-account mode), or GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GSCLAW_ENCRYPTION_KEY and PUBLIC_BASE_URL (Google OAuth mode).'
+          : 'Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS.') +
+        ` See ${SETUP_DOCS_URL}`,
     });
   }
 
@@ -119,12 +138,58 @@ export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResu
     }
   }
 
-  if (authMode === 'oauth') {
+  const encryptionKey = read('GSCLAW_ENCRYPTION_KEY');
+  if (encryptionKey && encryptionKey.length < MIN_ACCESS_TOKEN_LENGTH) {
     errors.push({
-      variable: 'GOOGLE_OAUTH_CLIENT_ID',
-      message:
-        'Google OAuth (multi-user) mode is not available in this build yet. Use service-account mode for now.',
+      variable: 'GSCLAW_ENCRYPTION_KEY',
+      message: `must be at least ${MIN_ACCESS_TOKEN_LENGTH} characters. Generate one with \`openssl rand -hex 32\`.`,
     });
+  }
+
+  let googleOAuth: GoogleOAuthConfig | undefined;
+  if (authMode === 'oauth') {
+    if (opts.transport === 'stdio') {
+      errors.push({
+        variable: 'GSCLAW_AUTH_MODE',
+        message:
+          'Google OAuth mode is for HTTP deployments. For local stdio use, set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS instead.',
+      });
+    }
+    const clientId = read('GOOGLE_OAUTH_CLIENT_ID');
+    const clientSecret = read('GOOGLE_OAUTH_CLIENT_SECRET');
+    if (!clientId) {
+      errors.push({
+        variable: 'GOOGLE_OAUTH_CLIENT_ID',
+        message:
+          'is required in OAuth mode (Google Cloud → APIs & Services → Credentials → OAuth client ID).',
+      });
+    }
+    if (!clientSecret) {
+      errors.push({
+        variable: 'GOOGLE_OAUTH_CLIENT_SECRET',
+        message: 'is required in OAuth mode.',
+      });
+    }
+    if (!encryptionKey) {
+      errors.push({
+        variable: 'GSCLAW_ENCRYPTION_KEY',
+        message:
+          'is required in OAuth mode; it encrypts the tokens GSClaw issues. Generate one with `openssl rand -hex 32`.',
+      });
+    }
+    const list = (key: string) =>
+      (read(key) ?? '')
+        .split(',')
+        .map((v) => v.trim().toLowerCase().replace(/^@/, ''))
+        .filter(Boolean);
+    if (clientId && clientSecret) {
+      googleOAuth = {
+        clientId,
+        clientSecret,
+        allowedEmails: list('ALLOWED_GOOGLE_EMAILS'),
+        allowedDomains: list('ALLOWED_GOOGLE_DOMAINS'),
+      };
+    }
   }
 
   const bool = (key: string, fallback: boolean) => {
@@ -192,7 +257,38 @@ export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResu
   const maxRows = int('GSCLAW_MAX_ROWS', 25_000, 1, 500_000);
   const batchInspectMax = int('GSCLAW_BATCH_INSPECT_MAX', 50, 1, 500);
 
+  const oauthRedirectHosts = (read('GSCLAW_OAUTH_REDIRECT_HOSTS') ?? '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (authMode === 'oauth' && opts.transport === 'http') {
+    if (!publicBaseUrl) {
+      errors.push({
+        variable: 'PUBLIC_BASE_URL',
+        message:
+          'is required in OAuth mode (e.g. https://gsclaw.example.com); Google redirects back to PUBLIC_BASE_URL/oauth/google/callback.',
+      });
+    } else {
+      const url = new URL(publicBaseUrl);
+      const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+      if (url.protocol !== 'https:' && !loopback) {
+        errors.push({ variable: 'PUBLIC_BASE_URL', message: 'must use https in OAuth mode.' });
+      }
+    }
+  }
+
   if (errors.length > 0 || !authMode) return { ok: false, errors };
+
+  if (
+    googleOAuth &&
+    googleOAuth.allowedEmails.length === 0 &&
+    googleOAuth.allowedDomains.length === 0
+  ) {
+    warnings.push(
+      'No ALLOWED_GOOGLE_EMAILS or ALLOWED_GOOGLE_DOMAINS set: anyone with a Google account can sign in to this deployment (each person only sees their own Search Console properties).',
+    );
+  }
 
   if (allowWrites) {
     warnings.push(
@@ -207,6 +303,16 @@ export function loadConfig(env: Env, opts: { transport: Transport }): ConfigResu
       authMode,
       serviceAccount,
       accessToken,
+      googleOAuth,
+      // In service-account mode the access token is always part of the secret, so rotating it
+      // revokes every OAuth token and dashboard session issued with the old one.
+      sealingSecret:
+        opts.transport !== 'http'
+          ? undefined
+          : accessToken
+            ? [encryptionKey, accessToken].filter(Boolean).join('\n')
+            : encryptionKey,
+      oauthRedirectHosts,
       publicBaseUrl,
       allowWrites,
       dashboard,

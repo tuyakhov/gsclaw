@@ -47,10 +47,14 @@ export function testConfig(overrides: Env = {}): Config {
   return result.config;
 }
 
-export function testRuntime(opts: { env?: Env; fake?: FakeGsc } = {}): Runtime & { fake: FakeGsc } {
+/** Service-account runtime plus the owner's session (gsc, ctx, tools) and the fake backend. */
+export function testRuntime(opts: { env?: Env; fake?: FakeGsc } = {}) {
   const fake = opts.fake ?? createFakeGsc();
-  const runtime = createRuntime(testConfig(opts.env), { fetch: fake.fetch, now: () => TEST_NOW });
-  return { ...runtime, fake };
+  const runtime: Runtime = createRuntime(testConfig(opts.env), {
+    fetch: fake.fetch,
+    now: () => TEST_NOW,
+  });
+  return { ...runtime, ...runtime.owner!, fake };
 }
 
 export const quietLogger = createLogger({ level: 'silent' });

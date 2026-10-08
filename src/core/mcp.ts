@@ -19,6 +19,8 @@ export interface McpServerDeps {
   ctx: ToolContext;
   logger: Logger;
   client: string;
+  /** Signed-in user's email (OAuth mode), recorded with each activity entry. */
+  user?: string;
   activity?: ActivityLog;
 }
 
@@ -56,6 +58,7 @@ export function buildMcpServer(deps: McpServerDeps): McpServer {
             site,
             ms: Date.now() - started,
             ok: true,
+            user: deps.user,
           });
           return {
             content: [{ type: 'text', text }],
@@ -73,6 +76,7 @@ export function buildMcpServer(deps: McpServerDeps): McpServer {
             ms: Date.now() - started,
             ok: false,
             error_kind: kind,
+            user: deps.user,
           });
           return { content: [{ type: 'text', text: message }], isError: true };
         }

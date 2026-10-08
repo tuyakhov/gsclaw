@@ -1,65 +1,8 @@
-import { base64ToBytes, base64UrlEncode, sha256, utf8 } from './crypto.js';
+// Dashboard session cookies. The value is a sealed blob (see seal.ts / oauth/server.ts); these
+// helpers only deal with the cookie itself.
 
 export const SESSION_COOKIE = 'gsclaw_session';
 export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 3600;
-
-export interface SessionPayload {
-  /** Subject: "owner" in service-account mode. */
-  sub: string;
-  /** Expiry, seconds since epoch. */
-  exp: number;
-}
-
-type HmacKey = Awaited<ReturnType<typeof crypto.subtle.importKey>>;
-
-/**
- * The signing key is derived from the deployment secret, so rotating GSCLAW_ACCESS_TOKEN signs
- * everyone out of the dashboard as well.
- */
-async function signingKey(secret: string): Promise<HmacKey> {
-  const raw = await sha256(`gsclaw-dashboard-session-v1:${secret}`);
-  return crypto.subtle.importKey(
-    'raw',
-    new Uint8Array(raw),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign', 'verify'],
-  );
-}
-
-/** `v1.<payload>.<signature>`, all base64url. */
-export async function signSession(payload: SessionPayload, secret: string): Promise<string> {
-  const body = `v1.${base64UrlEncode(JSON.stringify(payload))}`;
-  const sig = await crypto.subtle.sign('HMAC', await signingKey(secret), utf8(body));
-  return `${body}.${base64UrlEncode(new Uint8Array(sig))}`;
-}
-
-export async function verifySession(
-  value: string | undefined,
-  secret: string,
-  nowSeconds: number,
-): Promise<SessionPayload | null> {
-  if (!value) return null;
-  const parts = value.split('.');
-  if (parts.length !== 3 || parts[0] !== 'v1') return null;
-  try {
-    const ok = await crypto.subtle.verify(
-      'HMAC',
-      await signingKey(secret),
-      base64ToBytes(parts[2]!),
-      utf8(`${parts[0]}.${parts[1]}`),
-    );
-    if (!ok) return null;
-    const payload = JSON.parse(
-      new TextDecoder().decode(base64ToBytes(parts[1]!)),
-    ) as SessionPayload;
-    if (typeof payload.exp !== 'number' || payload.exp <= nowSeconds) return null;
-    if (typeof payload.sub !== 'string') return null;
-    return payload;
-  } catch {
-    return null;
-  }
-}
 
 export function parseCookies(header: string | null): Record<string, string> {
   const out: Record<string, string> = {};
@@ -75,7 +18,8 @@ export function parseCookies(header: string | null): Record<string, string> {
 
 /**
  * httpOnly + SameSite=Strict always. `Secure` everywhere except plain-http loopback development,
- * where some browsers would otherwise drop the cookie.
+ * where some browsers would otherwise drop the cookie. Strict is enough even after the cross-site
+ * return from Google sign-in: the HTML shell needs no cookie, and every API call is same-origin.
  */
 export function sessionCookie(value: string, opts: { secure: boolean; maxAge?: number }): string {
   const attrs = [

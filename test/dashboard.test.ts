@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 import { createStaticHandler } from '../src/adapters/static.js';
 import { createApp, type App } from '../src/core/app.js';
 import type { Env } from '../src/core/config.js';
-import { signSession, verifySession } from '../src/core/session.js';
 import { isNewer, latestRelease, resetUpdateCheckCache } from '../src/core/update-check.js';
 import { createFakeGsc, TEST_NOW } from './helpers/fake-gsc.js';
 import { ACCESS_TOKEN, testEnv } from './helpers/setup.js';
@@ -63,7 +62,7 @@ describe('dashboard sessions', () => {
       req('/api/session', { method: 'POST', body: JSON.stringify({ token: ACCESS_TOKEN }) }),
     );
     const cookie = ok.headers.get('set-cookie')!;
-    expect(cookie).toMatch(/^gsclaw_session=v1\./);
+    expect(cookie).toMatch(/^gsclaw_session=gsc_sess_/);
     for (const attr of ['HttpOnly', 'SameSite=Strict', 'Secure', 'Path=/', 'Max-Age=604800'])
       expect(cookie).toContain(attr);
     expect(cookie).not.toContain(ACCESS_TOKEN);
@@ -110,16 +109,6 @@ describe('dashboard sessions', () => {
       a.fetch(req('/api/session', { method: 'POST', body: JSON.stringify({ token: 'x' }) }));
     for (let i = 0; i < 10; i++) await attempt();
     expect((await attempt()).status).toBe(429);
-  });
-
-  it('signs and verifies session tokens', async () => {
-    const value = await signSession({ sub: 'owner', exp: 2_000 }, 'secret-a');
-    expect(await verifySession(value, 'secret-a', 1_000)).toEqual({ sub: 'owner', exp: 2_000 });
-    expect(await verifySession(value, 'secret-a', 2_001)).toBeNull(); // expired
-    expect(await verifySession(value, 'secret-b', 1_000)).toBeNull(); // rotated secret
-    const [v, , sig] = value.split('.');
-    const forged = `${v}.${Buffer.from(JSON.stringify({ sub: 'owner', exp: 9e9 })).toString('base64url')}.${sig}`;
-    expect(await verifySession(forged, 'secret-a', 1_000)).toBeNull();
   });
 });
 

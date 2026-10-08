@@ -148,3 +148,60 @@ async function importPkcs8(pem: string): Promise<SigningKey> {
     ['sign'],
   );
 }
+
+/** Per-instance cache of refreshed Google access tokens, keyed by user (OAuth mode). */
+export type UserTokenCache = Map<string, { token: string; expiresAt: number }>;
+
+/**
+ * A signed-in Google user's credentials (OAuth mode). Uses the access token carried in GSClaw's own
+ * token while it is fresh, then refreshes with the user's refresh token, sharing results across
+ * requests on this instance.
+ */
+export class UserTokenSource implements TokenSource {
+  readonly identity: Identity;
+  readonly scopes: string[];
+  private readonly opts: {
+    sub: string;
+    accessToken?: string;
+    /** Seconds since epoch. */
+    expiresAt?: number;
+    refreshToken: string;
+    refresh: (refreshToken: string) => Promise<{ accessToken: string; expiresAt: number }>;
+    cache: UserTokenCache;
+    now?: () => number;
+  };
+  private inflight?: Promise<string>;
+
+  constructor(email: string, scopes: string[], opts: UserTokenSource['opts']) {
+    this.identity = { kind: 'user', email };
+    this.scopes = scopes;
+    this.opts = opts;
+  }
+
+  private nowMs(): number {
+    return this.opts.now ? this.opts.now() : Date.now();
+  }
+
+  async getAccessToken(): Promise<string> {
+    const now = this.nowMs();
+    const { accessToken, expiresAt, cache, sub } = this.opts;
+    if (accessToken && expiresAt && expiresAt * 1000 - EXPIRY_MARGIN_MS > now) return accessToken;
+    const cached = cache.get(sub);
+    if (cached && cached.expiresAt * 1000 - EXPIRY_MARGIN_MS > now) return cached.token;
+    this.inflight ??= this.opts
+      .refresh(this.opts.refreshToken)
+      .then((fresh) => {
+        cache.set(sub, { token: fresh.accessToken, expiresAt: fresh.expiresAt });
+        return fresh.accessToken;
+      })
+      .finally(() => {
+        this.inflight = undefined;
+      });
+    return this.inflight;
+  }
+
+  invalidate(): void {
+    this.opts.accessToken = undefined;
+    this.opts.cache.delete(this.opts.sub);
+  }
+}

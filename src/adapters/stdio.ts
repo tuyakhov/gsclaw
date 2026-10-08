@@ -36,8 +36,8 @@ export async function runStdio(opts: { env?: Env; fetch?: typeof fetch } = {}): 
 
   serveStdio(() =>
     buildMcpServer({
-      tools: runtime.tools,
-      ctx: runtime.ctx,
+      tools: runtime.owner!.tools,
+      ctx: runtime.owner!.ctx,
       logger: runtime.logger,
       activity: runtime.activity,
       client: 'stdio',

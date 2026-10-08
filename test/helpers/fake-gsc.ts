@@ -183,7 +183,7 @@ export function aggregate(facts: Fact[], req: SearchAnalyticsRequest): SearchAna
 
 export interface FakeGsc {
   fetch: typeof fetch;
-  calls: { method: string; url: string; body?: unknown }[];
+  calls: { method: string; url: string; body?: unknown; auth?: string }[];
   /** Queue a raw response for the next request whose URL contains `match`. */
   failNext(match: string, status: number, body: unknown, times?: number): void;
   facts: Fact[];
@@ -207,7 +207,8 @@ export function createFakeGsc(opts: { facts?: Fact[]; sites?: typeof sitesFixtur
     const rawBody = typeof init?.body === 'string' ? init.body : undefined;
     let body: unknown = rawBody;
     if (rawBody?.startsWith('{')) body = JSON.parse(rawBody);
-    calls.push({ method, url, body });
+    const auth = new Headers(init?.headers).get('authorization') ?? undefined;
+    calls.push({ method, url, body, auth });
 
     const failure = failures.find((f) => url.includes(f.match));
     if (failure) {

@@ -86,7 +86,9 @@ describe('HTTP app', () => {
     const a = app();
     const missing = await a.fetch(post('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }));
     expect(missing.status).toBe(401);
-    expect(missing.headers.get('www-authenticate')).toBe('Bearer realm="gsclaw"');
+    expect(missing.headers.get('www-authenticate')).toContain(
+      'resource_metadata="https://gsclaw.test/.well-known/oauth-protected-resource/mcp"',
+    );
     const wrong = await a.fetch(post('/mcp', {}, { authorization: 'Bearer nope' }));
     expect(wrong.status).toBe(401);
     expect(wrong.headers.get('www-authenticate')).toContain('invalid_token');
