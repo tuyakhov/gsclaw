@@ -38,3 +38,23 @@ jobs:
           tar -xzf /tmp/gsclaw-*.tgz -C /tmp
           node -e "const p=require('/tmp/package/package.json'); if (p.scripts && p.scripts.preinstall) { console.error('preinstall leaked into the package'); process.exit(1) }"
           test -x /tmp/package/dist/cli.js
+
+  docker:
+    name: Docker image + MCP Inspector handshake
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: gsclaw:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - run: ./scripts/smoke-docker.sh
+        env:
+          SKIP_BUILD: '1'
