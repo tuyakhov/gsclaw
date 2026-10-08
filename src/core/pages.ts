@@ -61,6 +61,6 @@ export function setupPage(issues: ConfigIssue[]): string {
     `<h1>GSClaw needs configuration</h1>
 <p>This deployment is not configured yet, so it refuses to serve requests. Set these environment variables in your hosting dashboard and redeploy:</p>
 <ul>${items}</ul>
-<p><a href="${REPO_URL}#quickstart">Setup guide</a> · v${escape(VERSION)}</p>`,
+<p><a href="${REPO_URL}/blob/main/docs/setup.md">Setup guide</a> · v${escape(VERSION)}</p>`,
   );
 }

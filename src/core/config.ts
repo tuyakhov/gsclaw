@@ -57,7 +57,7 @@ export type ConfigResult =
   { ok: true; config: Config; warnings: string[] } | { ok: false; errors: ConfigIssue[] };
 
 export const MIN_ACCESS_TOKEN_LENGTH = 32;
-export const SETUP_DOCS_URL = 'https://github.com/tuyakhov/gsclaw#quickstart';
+export const SETUP_DOCS_URL = 'https://github.com/tuyakhov/gsclaw/blob/main/docs/setup.md';
 
 /**
  * Loads and validates configuration from environment variables. Never throws.

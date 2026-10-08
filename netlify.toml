@@ -12,5 +12,5 @@
 
 # Prompted by the "Deploy to Netlify" button.
 [template.environment]
-  GOOGLE_SERVICE_ACCOUNT_JSON = "Service-account key JSON (raw or base64). See the README quickstart."
+  GOOGLE_SERVICE_ACCOUNT_JSON = "Service-account key JSON (raw or base64). Setup guide: https://github.com/tuyakhov/gsclaw/blob/main/docs/setup.md"
   GSCLAW_ACCESS_TOKEN = "Long random secret clients must present. Generate with: openssl rand -hex 32"
