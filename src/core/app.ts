@@ -57,6 +57,15 @@ function safeDecode(segment: string): string {
   }
 }
 
+/** Deployments are private endpoints; ask crawlers not to index them. */
+const robots = () =>
+  new Response('User-agent: *\nDisallow: /\n', {
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'public, max-age=86400',
+    },
+  });
+
 const notFound = () =>
   new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
 
@@ -84,6 +93,7 @@ export function createApp(env: Env, platform: PlatformOptions): App {
       async fetch(request) {
         const path = new URL(request.url).pathname;
         if (path === '/healthz') return json({ status: 'setup_required', version: VERSION }, 503);
+        if (path === '/robots.txt') return robots();
         if (path === '/' && (request.method === 'GET' || request.method === 'HEAD')) {
           return html(setupPage(loaded.errors), 503);
         }
@@ -243,6 +253,7 @@ export function createApp(env: Env, platform: PlatformOptions): App {
     const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, '') : url.pathname;
 
     if (path === '/healthz') return json({ status: 'ok', version: VERSION });
+    if (path === '/robots.txt') return robots();
     if (path === '/mcp' || path.startsWith('/mcp/')) return handleMcp(request, url, path, log);
     if (path === '/' && (request.method === 'GET' || request.method === 'HEAD'))
       return html(runningPage());
