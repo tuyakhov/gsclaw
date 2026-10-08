@@ -7,9 +7,10 @@ config-as-code is deprecated for new services.
 ## Deploy from the template
 
 Open the [GSClaw template](https://railway.com/deploy/gsclaw) (or click **Deploy on Railway** in
-the README), fill in `GOOGLE_SERVICE_ACCOUNT_JSON` (the
-`GSCLAW_ACCESS_TOKEN` secret is generated for you), and deploy. Then open the service's
-**Settings → Networking → Generate Domain** to get a public URL.
+the README), paste your key into `GOOGLE_SERVICE_ACCOUNT_JSON` (`GSCLAW_ACCESS_TOKEN` is generated
+for you), and deploy. Railway generates a public domain on deploy; find it under the service's
+**Settings → Networking**. Your MCP endpoint is `https://YOUR_DOMAIN/mcp`, and the token is in the
+service's **Variables** tab.
 
 ## Maintainers: creating the template (one time)
 
