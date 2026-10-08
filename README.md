@@ -7,8 +7,8 @@ ChatGPT, VS Code and more) first-party access to Google Search Console. It runs 
 HTTPS endpoint (Streamable HTTP) or locally over stdio, and ships analysis tools like
 striking-distance keywords, CTR gaps, cannibalization and period comparison.
 
-> **Status:** early development. Service-account mode works on every target below; the
-> dashboard and Google OAuth (multi-user) mode are on the way. See
+> **Status:** early development. Service-account mode and the dashboard work on every target
+> below; Google OAuth (multi-user) mode is on the way. See
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 GSClaw is independent and not affiliated with Google or OpenClaw.
@@ -72,13 +72,33 @@ claude mcp add gsclaw -e GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account
 
 Prompt: `seo_health_check` runs a full property review with these tools.
 
+## Dashboard
+
+Every deployment also serves a small dashboard at `/` (sign in with your `GSCLAW_ACCESS_TOKEN`):
+
+- **Setup & health**: live Google API check, the service-account email to add in Search Console,
+  visible properties with permission levels, server version and update notice.
+- **Connect**: copy-paste snippets for claude.ai, Claude Code, Cursor, VS Code, ChatGPT and stdio,
+  with secrets hidden until revealed.
+- **Overview**: clicks, impressions, CTR and position with deltas, a trend chart, top queries
+  and pages.
+- **Opportunities**: striking-distance keywords, CTR gaps, cannibalization and content decay, each
+  row with an "Ask AI" button that copies a ready-made prompt.
+- **Indexing**: sitemap health and URL Inspection.
+- **Activity**: recent MCP tool calls (metadata only), so you can see what your AI is doing.
+
+The dashboard calls the exact same tool functions as the MCP server, so its numbers always match
+what your AI sees. Every table exports to CSV. Turn it off with `GSCLAW_DASHBOARD=false`.
+
 ## Development
 
 Requires Node 22+ and pnpm (via Corepack: `corepack enable`).
 
 ```bash
 pnpm install
+pnpm build && pnpm demo   # server + dashboard on fake Search Console data (no Google account)
 pnpm dev          # HTTP server with reload (reads env from your shell)
+pnpm dev:dashboard        # rebuild the dashboard bundle on change
 pnpm test         # unit + adapter integration tests (no Google calls)
 pnpm lint && pnpm typecheck && pnpm build
 ```

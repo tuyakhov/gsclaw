@@ -59,6 +59,20 @@ test/                Vitest unit tests + adapter integration tests against a fak
    handler, which builds a fresh `McpServer` with the tools this deployment allows (write tools
    only with `GSCLAW_ALLOW_WRITES=true` and a read/write scope).
 
+## Dashboard
+
+- Preact + uPlot, bundled by esbuild (`scripts/build-dashboard.mjs`) into fixed-name files in
+  `dist/public/assets/` with a 100 KB gzip budget enforced at build time (currently ~43 KB).
+- `dist/public` is served by each platform's static layer (Vercel/Netlify CDN, Workers assets) or
+  by the Node server. `index.html` is never placed there: the HTML shell lives in
+  `src/core/dashboard-shell.ts`, so `/` always goes through the app (dashboard, minimal page when
+  `GSCLAW_DASHBOARD=false`, or the setup page).
+- `/api/*` (`src/core/dashboard-api.ts`): token login → HMAC-signed session cookie (httpOnly,
+  Secure, SameSite=Strict, 7 days; key derived from `GSCLAW_ACCESS_TOKEN`, so rotating it signs
+  everyone out), status, connect info, activity, and `POST /api/tools/:name`, which runs the same
+  read-only tool functions as MCP. A test asserts dashboard and MCP results are identical.
+- Strict CSP (`script-src 'self'`, `connect-src 'self'`); the update check runs server-side.
+
 ## Never run open
 
 A deployment with no auth mode configured refuses to serve: the Node server and stdio exit with a
