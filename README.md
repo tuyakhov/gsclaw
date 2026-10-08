@@ -7,9 +7,8 @@ ChatGPT, VS Code and more) first-party access to Google Search Console. It runs 
 HTTPS endpoint (Streamable HTTP) or locally over stdio, and ships analysis tools like
 striking-distance keywords, CTR gaps, cannibalization and period comparison.
 
-> **Status:** early development. Service-account mode and the dashboard work on every target
-> below; Google OAuth (multi-user) mode is on the way. See
-> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+> **Status:** early development (0.x). Both authentication modes and the dashboard work on every
+> target below. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 GSClaw is independent and not affiliated with Google or OpenClaw.
 
@@ -24,7 +23,10 @@ GSClaw is independent and not affiliated with Google or OpenClaw.
 
 Every target asks for two values: `GOOGLE_SERVICE_ACCOUNT_JSON` (your service-account key) and
 `GSCLAW_ACCESS_TOKEN` (a long random secret; Render and Railway generate it for you). Your MCP
-endpoint is `https://<your-deployment>/mcp`.
+endpoint is `https://<your-deployment>/mcp`. To let each person sign in with their own Google
+account instead, set the [Google OAuth mode](#google-oauth-mode) variables.
+
+No database is needed in either mode: GSClaw is stateless and stores nothing.
 
 **Docker** (Fly.io, Coolify, any VPS):
 
@@ -54,6 +56,62 @@ For stdio clients such as Claude Code:
 claude mcp add gsclaw -e GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json -- npx -y gsclaw
 ```
 
+## Authentication modes
+
+GSClaw never runs open: it refuses to start until one of these modes is configured.
+
+|                      | Service account (default)                                         | Google OAuth                                                                                       |
+| -------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Who sees what        | Everyone with access sees the service account's properties        | Each person sees the properties their own Google account can access                                |
+| Clients authenticate | OAuth sign-in with the access token, bearer header, or secret URL | OAuth sign-in with Google                                                                          |
+| Best for             | You, or a team sharing the same properties                        | Agencies and teams where people have different access                                              |
+| Required variables   | `GOOGLE_SERVICE_ACCOUNT_JSON`, `GSCLAW_ACCESS_TOKEN`              | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GSCLAW_ENCRYPTION_KEY`, `PUBLIC_BASE_URL` |
+
+### Google OAuth mode
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), enable the
+   **Google Search Console API** for your project.
+2. Configure the **OAuth consent screen** (Google Auth Platform): choose **Internal** if everyone
+   is in your Google Workspace, otherwise **External**. Add the scopes `openid`, `email` and
+   `https://www.googleapis.com/auth/webmasters.readonly` (or `.../auth/webmasters` if you enable
+   writes).
+3. Create an **OAuth client ID** of type **Web application** with the authorized redirect URI
+   `https://<your-deployment>/oauth/google/callback`.
+4. Set these variables on your deployment and redeploy:
+
+   ```bash
+   GOOGLE_OAUTH_CLIENT_ID=...apps.googleusercontent.com
+   GOOGLE_OAUTH_CLIENT_SECRET=...
+   GSCLAW_ENCRYPTION_KEY=$(openssl rand -hex 32)
+   PUBLIC_BASE_URL=https://<your-deployment>   # auto-detected on Vercel, Netlify, Render, Railway, DigitalOcean, Fly
+   ALLOWED_GOOGLE_DOMAINS=example.com          # and/or ALLOWED_GOOGLE_EMAILS; empty = any Google account
+   ```
+
+   Remove `GOOGLE_SERVICE_ACCOUNT_JSON` and `GSCLAW_ACCESS_TOKEN`, or set
+   `GSCLAW_AUTH_MODE=oauth`.
+
+Good to know:
+
+- Search Console scopes are **sensitive**. An External app in _Testing_ status works for up to
+  100 test users you list, but Google expires their sign-in after 7 days. For long-lived access,
+  publish the app (Google may require verification) or use an Internal app.
+- Allowlists only decide who may sign in; data access always follows each person's own Search
+  Console permissions.
+- Users can revoke access at any time under Google Account → Security → Third-party connections.
+  Changing `GSCLAW_ENCRYPTION_KEY` signs everyone out.
+
+## Connect your AI
+
+The dashboard's **Connect** page has copy-paste snippets for every client. In short:
+
+- **claude.ai, Claude Desktop & mobile:** Settings → Connectors → Add custom connector → paste
+  `https://<your-deployment>/mcp` → Connect. GSClaw opens a sign-in page: enter your access token
+  (service-account mode) or sign in with Google (OAuth mode).
+- **Claude Code:** `claude mcp add --transport http gsclaw https://<your-deployment>/mcp`, then
+  run `/mcp` to sign in. In service-account mode you can instead add
+  `--header "Authorization: Bearer <token>"`.
+- **Cursor, VS Code, ChatGPT:** add the same URL; they sign in the same way.
+
 ## Tools
 
 | Tool                                 | What it does                                                                                |
@@ -74,10 +132,12 @@ Prompt: `seo_health_check` runs a full property review with these tools.
 
 ## Dashboard
 
-Every deployment also serves a small dashboard at `/` (sign in with your `GSCLAW_ACCESS_TOKEN`):
+Every deployment also serves a small dashboard at `/` (sign in with your `GSCLAW_ACCESS_TOKEN`,
+or with Google in OAuth mode, where everyone sees only their own properties and activity):
 
-- **Setup & health**: live Google API check, the service-account email to add in Search Console,
-  visible properties with permission levels, server version and update notice.
+- **Setup & health**: live Google API check, the service-account email to add in Search Console
+  (or the OAuth redirect URI and who can sign in), visible properties with permission levels,
+  server version and update notice.
 - **Connect**: copy-paste snippets for claude.ai, Claude Code, Cursor, VS Code, ChatGPT and stdio,
   with secrets hidden until revealed.
 - **Overview**: clicks, impressions, CTR and position with deltas, a trend chart, top queries
@@ -97,6 +157,7 @@ Requires Node 22+ and pnpm (via Corepack: `corepack enable`).
 ```bash
 pnpm install
 pnpm build && pnpm demo   # server + dashboard on fake Search Console data (no Google account)
+DEMO_AUTH=oauth pnpm demo # the same in Google OAuth mode, with a stand-in Google sign-in page
 pnpm dev          # HTTP server with reload (reads env from your shell)
 pnpm dev:dashboard        # rebuild the dashboard bundle on change
 pnpm test         # unit + adapter integration tests (no Google calls)
