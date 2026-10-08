@@ -19,7 +19,7 @@ GSClaw is independent and not affiliated with Google or OpenClaw.
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/tuyakhov/gsclaw)
 [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/tuyakhov/gsclaw/tree/main)
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tuyakhov/gsclaw)
-[![Deploy on Railway](https://railway.com/button.svg)](docs/deploy/railway.md)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/gsclaw?utm_medium=integration&utm_source=button&utm_campaign=gsclaw)
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/tuyakhov/gsclaw)
 
 Every target asks for two values: `GOOGLE_SERVICE_ACCOUNT_JSON` (your service-account key) and

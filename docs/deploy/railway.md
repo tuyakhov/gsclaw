@@ -6,7 +6,8 @@ config-as-code is deprecated for new services.
 
 ## Deploy from the template
 
-Click **Deploy on Railway** in the README, fill in `GOOGLE_SERVICE_ACCOUNT_JSON` (the
+Open the [GSClaw template](https://railway.com/deploy/gsclaw) (or click **Deploy on Railway** in
+the README), fill in `GOOGLE_SERVICE_ACCOUNT_JSON` (the
 `GSCLAW_ACCESS_TOKEN` secret is generated for you), and deploy. Then open the service's
 **Settings → Networking → Generate Domain** to get a public URL.
 
@@ -26,8 +27,8 @@ Click **Deploy on Railway** in the README, fill in `GOOGLE_SERVICE_ACCOUNT_JSON`
    - Root directory, pre-deploy command and custom start command: leave empty (the Dockerfile's
      `CMD` runs `node dist/cli.js serve`).
    - Healthcheck path: `/healthz`.
-5. Publish (marketplace listing is optional), copy the template code, and replace
-   `RAILWAY_TEMPLATE_CODE` in the README's Railway button URL.
+5. Publish. The marketplace listing lives at https://railway.com/deploy/gsclaw, which the
+   README's Railway button links to. Listing copy: [railway-listing.md](railway-listing.md).
 
 ## Without a template
 
