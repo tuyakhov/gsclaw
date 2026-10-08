@@ -26,6 +26,13 @@ function app(env: Env = {}, fetchImpl?: typeof fetch, now: () => Date = () => TE
   return createApp(testEnv(env), { name: 'test', fetch: fetchImpl ?? createFakeGsc().fetch, now });
 }
 
+/** The browser-binding cookie set when a Google round-trip starts. */
+const stateCookieFrom = (res: Response) => {
+  const cookie = res.headers.get('set-cookie') ?? '';
+  expect(cookie).toMatch(/^gsclaw_oauth_state=.+HttpOnly; SameSite=Lax/);
+  return cookie.split(';')[0]!;
+};
+
 const call = (a: App) => (url: string | URL, init?: RequestInit) => a.fetch(new Request(url, init));
 
 /** Runs the authorization-code flow like a real MCP client, approving on the consent page. */
@@ -444,6 +451,7 @@ describe('Google OAuth mode (multi-user)', () => {
     return a.fetch(
       new Request(
         `${BASE}/oauth/google/callback?${new URLSearchParams({ code: `code-${sub}`, state }).toString()}`,
+        { headers: { cookie: stateCookieFrom(toGoogle) } },
       ),
     );
   };
@@ -520,9 +528,16 @@ describe('Google OAuth mode (multi-user)', () => {
     const { a } = oauthApp();
     const start = await call(a)(`${BASE}/oauth/google/start`);
     const state = new URL(start.headers.get('location')!).searchParams.get('state')!;
-    const back = await call(a)(
-      `${BASE}/oauth/google/callback?${new URLSearchParams({ code: 'code-alice', state }).toString()}`,
-    );
+    const callback = `${BASE}/oauth/google/callback?${new URLSearchParams({ code: 'code-alice', state }).toString()}`;
+    // Login CSRF: a callback URL replayed in another browser (without the state cookie) is refused.
+    const elsewhere = await call(a)(callback);
+    expect(elsewhere.status).toBe(400);
+    expect(elsewhere.headers.get('set-cookie')).toBeNull();
+    const forged = await call(a)(callback, {
+      headers: { cookie: 'gsclaw_oauth_state=not-the-right-value' },
+    });
+    expect(forged.status).toBe(400);
+    const back = await call(a)(callback, { headers: { cookie: stateCookieFrom(start) } });
     expect(back.headers.get('location')).toBe('/');
     const cookie = back.headers.get('set-cookie')!.split(';')[0]!;
     const session = await (await call(a)(`${BASE}/api/session`, { headers: { cookie } })).json();

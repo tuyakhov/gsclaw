@@ -36,3 +36,21 @@ export function sessionCookie(value: string, opts: { secure: boolean; maxAge?: n
 export function clearedSessionCookie(secure: boolean): string {
   return sessionCookie('', { secure, maxAge: 0 });
 }
+
+export const STATE_COOKIE = 'gsclaw_oauth_state';
+
+/**
+ * Binds a Google sign-in to the browser that started it (login-CSRF protection). SameSite=Lax, not
+ * Strict: it has to ride along on Google's cross-site redirect back to the callback, its only path.
+ */
+export function stateCookie(value: string, opts: { secure: boolean; maxAge: number }): string {
+  const attrs = [
+    `${STATE_COOKIE}=${value}`,
+    'Path=/oauth/google/callback',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${opts.maxAge}`,
+  ];
+  if (opts.secure) attrs.push('Secure');
+  return attrs.join('; ');
+}

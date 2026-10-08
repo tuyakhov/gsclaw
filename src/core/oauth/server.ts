@@ -13,7 +13,7 @@ import { HTML_SECURITY_HEADERS } from '../pages.js';
 import { SCOPE_READ, SCOPE_WRITE, type Principal } from '../principal.js';
 import { RateLimiter } from '../ratelimit.js';
 import type { Sealer } from '../seal.js';
-import { sessionCookie } from '../session.js';
+import { parseCookies, sessionCookie, STATE_COOKIE, stateCookie } from '../session.js';
 import { OAuthError, redirectUriMatches, registerClient, resolveClient } from './clients.js';
 import {
   exchangeGoogleCode,
@@ -52,7 +52,10 @@ interface AuthRequest {
 interface GoogleState {
   req?: AuthRequest;
   dash?: boolean;
+  /** PKCE verifier for the Google round-trip. */
   v: string;
+  /** Browser binding: must match the state cookie set when the round-trip started. */
+  b: string;
 }
 
 interface CodePayload extends Omit<AuthRequest, 'st'> {
@@ -224,12 +227,14 @@ export function createOAuthServer(deps: OAuthServerDeps) {
     );
 
   async function startGoogle(
-    state: GoogleState,
+    target: Pick<GoogleState, 'req' | 'dash'>,
     scopes: string[],
     base: string,
   ): Promise<Response> {
+    const state: GoogleState = { ...target, v: randomToken(32), b: randomToken(24) };
     const challenge = base64UrlEncode(await sha256(state.v));
     const sealedState = await sealer.seal('state', state, REQUEST_TTL);
+    const secure = new URL(base).protocol === 'https:';
     return redirect(
       googleAuthUrl(google!, {
         redirectUri: `${base}/oauth/google/callback`,
@@ -237,6 +242,7 @@ export function createOAuthServer(deps: OAuthServerDeps) {
         state: sealedState,
         codeChallenge: challenge,
       }),
+      { 'set-cookie': stateCookie(state.b, { secure, maxAge: REQUEST_TTL }) },
     );
   }
 
@@ -317,7 +323,7 @@ export function createOAuthServer(deps: OAuthServerDeps) {
     if (form.decision !== 'allow')
       return clientError(req, 'access_denied', 'The request was denied.', base);
 
-    if (config.authMode === 'oauth') return startGoogle({ req, v: randomToken(32) }, req.sc, base);
+    if (config.authMode === 'oauth') return startGoogle({ req }, req.sc, base);
 
     const ip =
       request.headers.get('cf-connecting-ip') ??
@@ -348,11 +354,15 @@ export function createOAuthServer(deps: OAuthServerDeps) {
   }
 
   /** GET /oauth/google/callback (OAuth mode): finish Google sign-in for an MCP client or the dashboard. */
-  async function googleCallback(url: URL, base: string): Promise<Response> {
+  async function googleCallback(request: Request, url: URL, base: string): Promise<Response> {
     const state = await sealer.open<GoogleState>('state', url.searchParams.get('state'));
-    if (!state || !google)
+    const bound = parseCookies(request.headers.get('cookie'))[STATE_COOKIE];
+    if (!state || !google || !bound || !(await timingSafeEqual(bound, state.b)))
       return html(
-        oauthErrorPage('Sign-in expired', 'This sign-in expired. Please start again.'),
+        oauthErrorPage(
+          'Sign-in expired',
+          'This sign-in expired or was started in a different browser. Please start again.',
+        ),
         400,
       );
     const fail = (error: string, description: string, dashCode: string) =>
@@ -584,9 +594,10 @@ export function createOAuthServer(deps: OAuthServerDeps) {
         if (path === '/oauth/authorize' && method === 'GET') return authorize(url, base);
         if (path === '/oauth/authorize' && method === 'POST') return decide(request, base);
         if (path === '/oauth/token' && method === 'POST') return token(request);
-        if (path === '/oauth/google/callback' && method === 'GET') return googleCallback(url, base);
+        if (path === '/oauth/google/callback' && method === 'GET')
+          return googleCallback(request, url, base);
         if (path === '/oauth/google/start' && method === 'GET' && google) {
-          return startGoogle({ dash: true, v: randomToken(32) }, [SCOPE_READ], base);
+          return startGoogle({ dash: true }, [SCOPE_READ], base);
         }
       } catch (error) {
         if (error instanceof OAuthError) {
