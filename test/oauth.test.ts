@@ -557,6 +557,69 @@ describe('Google OAuth mode (multi-user)', () => {
     expect(sites.result.identity).toBe('alice@example.com');
   });
 
+  it('applies allowlist changes to existing tokens and sessions', async () => {
+    const { a } = oauthApp();
+    const { provider, store } = memoryProvider();
+    const client = await connectWithOAuth(a, provider, store, viaGoogle(a, 'alice'));
+    await client.close();
+    const tokens = store.tokens as { access_token: string; refresh_token: string };
+    const start = await call(a)(`${BASE}/oauth/google/start`);
+    const state = new URL(start.headers.get('location')!).searchParams.get('state')!;
+    const back = await call(a)(
+      `${BASE}/oauth/google/callback?${new URLSearchParams({ code: 'code-alice', state }).toString()}`,
+      { headers: { cookie: stateCookieFrom(start) } },
+    );
+    const cookie = back.headers.get('set-cookie')!.split(';')[0]!;
+
+    // Same encryption key, but alice's domain is no longer allowed.
+    const { a: narrowed } = oauthApp({ ALLOWED_GOOGLE_DOMAINS: 'other.example' });
+    const mcp = await call(narrowed)(`${BASE}/mcp`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${tokens.access_token}` },
+      body: '{}',
+    });
+    expect(mcp.status).toBe(401);
+    const refresh = await call(narrowed)(`${BASE}/oauth/token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: form({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token }),
+    });
+    expect(((await refresh.json()) as { error: string }).error).toBe('invalid_grant');
+    const session = (await (
+      await call(narrowed)(`${BASE}/api/session`, { headers: { cookie } })
+    ).json()) as { authenticated: boolean };
+    expect(session.authenticated).toBe(false);
+  });
+
+  it('never lets an unverified email satisfy an allowlist added later', async () => {
+    const fake = createFakeGsc();
+    const unverified: GoogleUser = { sub: 'eve', email: 'eve@example.com', emailVerified: false };
+    const google = withFakeGoogle(fake.fetch, [unverified], CLIENT_ID, () =>
+      Math.floor(TEST_NOW.getTime() / 1000),
+    );
+    const env = { ...testEnv(oauthEnv), ALLOWED_GOOGLE_DOMAINS: undefined };
+    const open = createApp(env, { name: 'test', fetch: google.fetch, now: () => TEST_NOW });
+    const start = await call(open)(`${BASE}/oauth/google/start`);
+    const state = new URL(start.headers.get('location')!).searchParams.get('state')!;
+    const back = await call(open)(
+      `${BASE}/oauth/google/callback?${new URLSearchParams({ code: 'code-eve', state }).toString()}`,
+      { headers: { cookie: stateCookieFrom(start) } },
+    );
+    const cookie = back.headers.get('set-cookie')!.split(';')[0]!;
+    const sessionIn = async (target: App) =>
+      (
+        (await (await call(target)(`${BASE}/api/session`, { headers: { cookie } })).json()) as {
+          authenticated: boolean;
+        }
+      ).authenticated;
+    expect(await sessionIn(open)).toBe(true);
+    const restricted = createApp(
+      { ...env, ALLOWED_GOOGLE_DOMAINS: 'example.com' },
+      { name: 'test', fetch: google.fetch, now: () => TEST_NOW },
+    );
+    expect(await sessionIn(restricted)).toBe(false);
+  });
+
   it('has no static token or secret path', async () => {
     const { a } = oauthApp();
     expect(

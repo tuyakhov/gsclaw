@@ -35,6 +35,8 @@ interface SealedPrincipal {
   k: 'owner' | 'user';
   sub: string;
   email?: string;
+  /** Google verified the email (allowlists only ever match verified emails). */
+  ev?: boolean;
   g?: { at?: string; ex?: number; rt: string; sc: string[] };
 }
 
@@ -202,6 +204,15 @@ export function createOAuthServer(deps: OAuthServerDeps) {
       service_documentation: 'https://github.com/tuyakhov/gsclaw#readme',
     };
   }
+
+  /**
+   * The allowlist applies to every request, not just sign-in, so removing someone from
+   * ALLOWED_GOOGLE_EMAILS/DOMAINS (and redeploying) cuts off their existing tokens and sessions too.
+   */
+  const stillAllowed = (p: SealedPrincipal): boolean =>
+    p.k !== 'user' ||
+    !google ||
+    isAllowed({ sub: p.sub, email: p.email ?? '', emailVerified: p.ev === true }, google);
 
   async function issueCode(req: AuthRequest, p: SealedPrincipal, base: string): Promise<Response> {
     const code = await sealer.seal(
@@ -419,6 +430,7 @@ export function createOAuthServer(deps: OAuthServerDeps) {
       k: 'user',
       sub: identity.sub,
       email: identity.email,
+      ev: identity.emailVerified,
       g: {
         at: tokens.accessToken,
         ex: tokens.expiresAt,
@@ -489,6 +501,8 @@ export function createOAuthServer(deps: OAuthServerDeps) {
       if (!rt) return err('invalid_grant', 'The refresh token is invalid or expired.');
       if (clientId && clientId !== rt.cid)
         return err('invalid_grant', 'The refresh token was issued to another client.');
+      if (!stillAllowed(rt.p))
+        return err('invalid_grant', 'This Google account is no longer allowed to use GSClaw.');
       let scopes = rt.sc;
       if (form.scope) {
         const narrowed = form.scope.split(/\s+/).filter((s) => rt.sc.includes(s));
@@ -547,7 +561,7 @@ export function createOAuthServer(deps: OAuthServerDeps) {
     async verifyAccessToken(token: string, base: string): Promise<Principal | null> {
       const t = await sealer.open<TokenPayload>('access', token);
       if (!t || t.aud !== resourceUrl(base)) return null;
-      if ((config.authMode === 'oauth') !== (t.p.k === 'user')) return null;
+      if ((config.authMode === 'oauth') !== (t.p.k === 'user') || !stillAllowed(t.p)) return null;
       return toPrincipal(t.p, { scopes: t.sc, via: 'oauth', clientId: t.cid, clientName: t.cn });
     },
 
@@ -555,7 +569,7 @@ export function createOAuthServer(deps: OAuthServerDeps) {
     async openSession(value: string | undefined): Promise<Principal | null> {
       const s = await sealer.open<SessionPayload>('session', value);
       if (!s) return null;
-      if ((config.authMode === 'oauth') !== (s.p.k === 'user')) return null;
+      if ((config.authMode === 'oauth') !== (s.p.k === 'user') || !stillAllowed(s.p)) return null;
       return toPrincipal(s.p, { scopes: [SCOPE_READ], via: 'session' });
     },
 
