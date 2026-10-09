@@ -18,6 +18,7 @@ import { pageReport } from '../src/core/tools/page-report.js';
 import { availableTools } from '../src/core/tools/registry.js';
 import { searchAnalytics } from '../src/core/tools/search-analytics.js';
 import { listSites } from '../src/core/tools/sites.js';
+import { pageUrlNote } from '../src/core/gsc/sites.js';
 import { listSitemaps, submitSitemap } from '../src/core/tools/sitemaps.js';
 import type { AnyTool } from '../src/core/tools/types.js';
 import {
@@ -119,6 +120,27 @@ describe('property resolution', () => {
     granted = true;
     const after = await call(searchAnalytics, { site_url: SITE, dimensions: ['query'] }, runtime);
     expect((after.result as { site_url: string }).site_url).toBe(SITE);
+  });
+});
+
+describe('page URL passed as a property', () => {
+  it('gets a note only when the results cover more than the page', () => {
+    expect(pageUrlNote('https://example.com/pricing', 'sc-domain:example.com')).toContain(
+      'covers the whole property sc-domain:example.com',
+    );
+    expect(pageUrlNote('https://example.com/blog/post', 'https://example.com/blog/')).toContain(
+      'https://example.com/blog/',
+    );
+    for (const [input, site] of [
+      ['https://www.example.com/', 'https://www.example.com/'],
+      ['https://www.example.com', 'https://www.example.com/'],
+      ['https://example.com/blog', 'https://example.com/blog/'],
+      ['https://example.com/?utm_source=x', 'sc-domain:example.com'],
+      ['example.com', 'sc-domain:example.com'],
+      ['sc-domain:example.com', 'sc-domain:example.com'],
+    ]) {
+      expect(pageUrlNote(input!, site!)).toBeNull();
+    }
   });
 });
 

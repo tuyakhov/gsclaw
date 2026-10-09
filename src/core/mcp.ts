@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/server';
 import type { ActivityLog } from './activity.js';
 import { publicErrorMessage } from './errors.js';
 import { capText } from './format.js';
+import { pageUrlNote } from './gsc/sites.js';
 import type { Logger } from './log.js';
 import { seoHealthCheckArgs, seoHealthCheckPrompt } from './prompts.js';
 import type { AnyTool, ToolContext } from './tools/types.js';
@@ -50,7 +51,12 @@ export function buildMcpServer(deps: McpServerDeps): McpServer {
               : null;
         try {
           const result = await tool.run(deps.ctx, args);
-          const text = capText(tool.format(result, args));
+          const resolved = (result as { site_url?: unknown }).site_url;
+          const note =
+            typeof args.site_url === 'string' && typeof resolved === 'string'
+              ? pageUrlNote(args.site_url, resolved)
+              : null;
+          const text = capText((note ? `> ${note}\n\n` : '') + tool.format(result, args));
           deps.activity?.record({
             time: new Date().toISOString(),
             client: deps.client,
@@ -62,7 +68,7 @@ export function buildMcpServer(deps: McpServerDeps): McpServer {
           });
           return {
             content: [{ type: 'text', text }],
-            structuredContent: result as Record<string, unknown>,
+            structuredContent: note ? { note, ...(result as Record<string, unknown>) } : result,
           };
         } catch (error) {
           const { message, kind } = publicErrorMessage(error);

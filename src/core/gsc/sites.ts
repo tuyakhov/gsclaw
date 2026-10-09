@@ -181,6 +181,25 @@ function matchProperty(properties: Property[], input: string): Property {
   );
 }
 
+/**
+ * When a page URL is passed where a property is expected, tools resolve it to the property that
+ * contains it, so results cover far more than that page. Returns a note saying so, or null when
+ * the input is a property, a bare domain or a site root.
+ */
+export function pageUrlNote(input: string, siteUrl: string): string | null {
+  const raw = input.trim();
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.pathname === '/') return null;
+  const asPrefix = (s: string) => s.toLowerCase().replace(/\/?$/, '/');
+  if (asPrefix(raw) === asPrefix(siteUrl)) return null;
+  return `'${raw}' is a page, not a property, so this covers the whole property ${siteUrl}. For one page, use page_report or filter by page.`;
+}
+
 /** Resolves a page given as an absolute URL or a path ('/pricing') against a property. */
 export function absolutePageUrl(property: Property, page: string): string | null {
   if (/^https?:\/\//i.test(page)) return page;

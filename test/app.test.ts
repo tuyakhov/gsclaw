@@ -176,6 +176,25 @@ describe('MCP over HTTP', () => {
     await client.close();
   });
 
+  it('says so when a page URL is given where a property is expected', async () => {
+    const client = await connect(app());
+    const page = await client.callTool({
+      name: 'search_analytics',
+      arguments: { site_url: 'https://example.com/pricing', dimensions: ['query'] },
+    });
+    const note = expect.stringContaining('covers the whole property sc-domain:example.com');
+    expect(page.structuredContent).toMatchObject({ site_url: 'sc-domain:example.com', note });
+    expect((page.content as { text: string }[])[0]!.text).toMatch(
+      /^> 'https:\/\/example\.com\/pricing' is a page/,
+    );
+    const property = await client.callTool({
+      name: 'search_analytics',
+      arguments: { site_url: 'sc-domain:example.com', dimensions: ['query'] },
+    });
+    expect(property.structuredContent).not.toHaveProperty('note');
+    await client.close();
+  });
+
   it('returns text plus structured content, and tool errors as isError', async () => {
     const a = app();
     const client = await connect(a);

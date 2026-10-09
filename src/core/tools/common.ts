@@ -28,7 +28,7 @@ export const siteUrlField = z
   .string()
   .min(1)
   .describe(
-    "Search Console property: 'sc-domain:example.com', 'https://www.example.com/', or just 'example.com' (matched against your properties; see list_sites).",
+    "Search Console property: 'sc-domain:example.com', 'https://www.example.com/', or just 'example.com' (matched against your properties; see list_sites). A page URL selects the whole property that contains it; for one page use page_report or a page filter.",
   );
 
 const dateField = z.string().refine(isValidDate, 'Use YYYY-MM-DD.').optional();
