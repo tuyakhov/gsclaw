@@ -101,13 +101,16 @@ export const strikingDistanceKeywords = defineTool({
   async run(ctx, input): Promise<StrikingDistanceResult> {
     const property = await propertyFor(ctx, input.site_url);
     const window = await resolveWindow(ctx, property, input);
-    const { rows, truncated } = await queryPageRows(
-      ctx,
-      property.site_url,
-      window,
-      input.exclude_queries,
-    );
-    const curve = buildCtrCurve(rows, { benchmark: 'site' });
+    const [{ rows, truncated }, queryLevel] = await Promise.all([
+      queryPageRows(ctx, property.site_url, window, input.exclude_queries),
+      fetchRows(ctx, property.site_url, window, ['query'], {
+        filters: withQueryExclusion(undefined, input.exclude_queries),
+        dataState: window.dataState,
+      }),
+    ]);
+    // The CTR curve comes from query-level rows, like ctr_opportunities. In query×page rows every
+    // sitelink is its own ~0% CTR result at the top position, which drags the whole curve to zero.
+    const curve = buildCtrCurve(queryLevel.rows, { benchmark: 'site' });
     const matches = findStrikingDistance(rows, {
       minPosition: input.min_position,
       maxPosition: input.max_position,

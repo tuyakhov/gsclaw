@@ -15,7 +15,13 @@ import { searchAnalytics } from '../src/core/tools/search-analytics.js';
 import { listSites } from '../src/core/tools/sites.js';
 import { listSitemaps, submitSitemap } from '../src/core/tools/sitemaps.js';
 import type { AnyTool } from '../src/core/tools/types.js';
-import { createFakeGsc, LATEST_FINAL_DATE, SITE } from './helpers/fake-gsc.js';
+import {
+  buildFacts,
+  createFakeGsc,
+  LATEST_FINAL_DATE,
+  SITE,
+  type Series,
+} from './helpers/fake-gsc.js';
 import { testRuntime } from './helpers/setup.js';
 
 /** Runs a tool exactly as the MCP layer does: validate input, run, format. */
@@ -174,6 +180,39 @@ describe('analysis tools', () => {
     expect(picker!.potential_extra_clicks).toBeGreaterThan(0);
     expect(rows.find((r) => r.query === 'example')).toBeUndefined();
     expect(text).toContain('giveaway picker');
+  });
+
+  it('estimates potential clicks even when sitelinks crowd the top position', async () => {
+    // Brand queries rank #1 with four sitelinks each. Google reports every sitelink as its own
+    // query×page row with ~0% CTR, which used to drag the site's CTR curve (and every
+    // "potential clicks" estimate) down to zero.
+    const P = 'https://example.com';
+    const brand = (i: number): Series[] => [
+      { query: `brand ${i}`, page: `${P}/`, impressions: 100, position: 1.1, ctr: 0.4 },
+      ...['a', 'b', 'c', 'd'].map((s) => ({
+        query: `brand ${i}`,
+        page: `${P}/${s}`,
+        impressions: 100,
+        position: 1.1,
+        ctr: 0,
+      })),
+    ];
+    const series: Series[] = [
+      ...Array.from({ length: 10 }, (_, i) => brand(i)).flat(),
+      { query: 'almost there', page: `${P}/guide`, impressions: 100, position: 10.2, ctr: 0.01 },
+    ];
+    const runtime = testRuntime({
+      fake: createFakeGsc({ facts: buildFacts(LATEST_FINAL_DATE, 60, { series }) }),
+    });
+    const { result } = await call(strikingDistanceKeywords, { site_url: SITE }, runtime);
+    const r = result as {
+      expected_ctr_at_target_pct: number;
+      rows: { query: string; potential_extra_clicks: number }[];
+    };
+    expect(r.expected_ctr_at_target_pct).toBeGreaterThan(0);
+    expect(
+      r.rows.find((row) => row.query === 'almost there')?.potential_extra_clicks,
+    ).toBeGreaterThan(0);
   });
 
   it('finds CTR opportunities and returns the benchmark curve', async () => {
