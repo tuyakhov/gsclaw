@@ -45,6 +45,35 @@ function groupByQuery(
   return byQuery;
 }
 
+/**
+ * Google reports each sitelink as its own query × page row. Pages shown together in one result
+ * share exactly the same impressions and position, so 2+ pages of a query that match on both are
+ * treated as one result. If another page of the query has more impressions, it is the main link
+ * and the whole group is its sitelinks; otherwise the group is the main result and keeps its best
+ * page. Sitelinks don't compete with anything, so the analyses below leave them out.
+ */
+export function withoutSitelinks(pages: QueryPageRow[]): {
+  pages: QueryPageRow[];
+  sitelinks: number;
+} {
+  const groups = new Map<string, QueryPageRow[]>();
+  for (const page of pages) {
+    if (page.impressions < 10) continue;
+    const key = `${page.impressions}|${page.position.toFixed(1)}`;
+    groups.set(key, [...(groups.get(key) ?? []), page]);
+  }
+  const dropped = new Set<QueryPageRow>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const isMain = !pages.some((p) => p.impressions > group[0]!.impressions);
+    const keep = isMain
+      ? [...group].sort((a, b) => b.clicks - a.clicks || a.page.length - b.page.length)[0]
+      : undefined;
+    for (const page of group) if (page !== keep) dropped.add(page);
+  }
+  return { pages: pages.filter((p) => !dropped.has(p)), sitelinks: dropped.size };
+}
+
 // ---------------------------------------------------------------------------------------------
 // Striking distance
 // ---------------------------------------------------------------------------------------------
@@ -53,7 +82,7 @@ export interface StrikingDistanceRow extends Metrics {
   query: string;
   /** The page that ranks for the query (most impressions). */
   page: string;
-  /** Other pages of the site that also appear for this query. */
+  /** Other pages of the site that also appear for this query (not counting sitelinks). */
   other_pages: number;
   /** Estimated extra clicks/period if this page reached `target_position`. */
   potential_extra_clicks: number;
@@ -72,7 +101,9 @@ export function findStrikingDistance(
   const targetCtr = expectedCtr(opts.curve, opts.targetPosition) / 100;
   const out: StrikingDistanceRow[] = [];
   for (const [query, pages] of groupByQuery(rows, true)) {
-    const sorted = [...pages.values()].sort((a, b) => b.impressions - a.impressions);
+    const sorted = withoutSitelinks([...pages.values()]).pages.sort(
+      (a, b) => b.impressions - a.impressions,
+    );
     const primary = sorted[0]!;
     if (primary.position < opts.minPosition || primary.position > opts.maxPosition) continue;
     if (primary.impressions < opts.minImpressions) continue;
@@ -138,6 +169,8 @@ export interface CannibalizationRow {
   /** Impressions that went to pages other than the top one. */
   contested_impressions: number;
   competing_pages: number;
+  /** Pages Google showed as sitelinks for this query, left out of the analysis. */
+  sitelinks_ignored: number;
   pages: PageShare[];
 }
 
@@ -147,8 +180,8 @@ export function findCannibalization(
 ): CannibalizationRow[] {
   const out: CannibalizationRow[] = [];
   for (const [query, pages] of groupByQuery(rows, true)) {
-    if (pages.size < 2) continue;
-    const list = [...pages.values()];
+    const { pages: list, sitelinks } = withoutSitelinks([...pages.values()]);
+    if (list.length < 2) continue;
     const impressions = list.reduce((s, r) => s + r.impressions, 0);
     if (impressions < opts.minImpressions) continue;
     const shares: PageShare[] = list
@@ -166,6 +199,7 @@ export function findCannibalization(
       impressions,
       contested_impressions: impressions - shares[0]!.impressions,
       competing_pages: competing.length,
+      sitelinks_ignored: sitelinks,
       pages: shares.slice(0, opts.maxPagesShown ?? 5),
     });
   }

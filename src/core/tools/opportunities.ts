@@ -166,7 +166,7 @@ export const strikingDistanceKeywords = defineTool({
         ]),
       ),
       omittedNote(r.rows.length, r.total_matches, 'Raise `limit` to see more.'),
-      `_Potential clicks assume ${fmtPct(r.expected_ctr_at_target_pct)} CTR at position ${r.target_position} (your site's CTR curve where data allows, otherwise an industry average). "+N other" = more pages competing for the query; see keyword_cannibalization._`,
+      `_Potential clicks assume ${fmtPct(r.expected_ctr_at_target_pct)} CTR at position ${r.target_position} (your site's CTR curve where data allows, otherwise an industry average). "+N other" = more pages competing for the query (sitelinks not counted); see keyword_cannibalization._`,
       truncatedNote(r.truncated),
     );
   },
@@ -318,7 +318,7 @@ export const keywordCannibalization = defineTool({
   name: 'keyword_cannibalization',
   title: 'Keyword cannibalization',
   description:
-    "Finds queries where two or more of the site's pages each get a meaningful share of impressions, so they compete with each other. Returns each page's impression share, clicks and position. URL #fragments are merged into their page.",
+    "Finds queries where two or more of the site's pages each get a meaningful share of impressions, so they compete with each other. Returns each page's impression share, clicks and position. URL #fragments are merged into their page, and sitelinks (pages Google shows together in one result) are not counted as competing.",
   input: z.object({
     site_url: siteUrlField,
     ...dateRangeFields,
@@ -372,7 +372,8 @@ export const keywordCannibalization = defineTool({
     }
     const blocks = r.rows.map((q) =>
       sections(
-        `**"${q.query}"** — ${fmtInt(q.impressions)} impr., ${fmtInt(q.clicks)} clicks, ${q.competing_pages} competing pages`,
+        `**"${q.query}"** — ${fmtInt(q.impressions)} impr., ${fmtInt(q.clicks)} clicks, ${q.competing_pages} competing pages` +
+          (q.sitelinks_ignored ? ` (${q.sitelinks_ignored} sitelinks not counted)` : ''),
         mdTable(
           ['Page', 'Share', 'Impr.', 'Clicks', 'Pos.'],
           q.pages.map((p) => [
@@ -395,6 +396,7 @@ export const keywordCannibalization = defineTool({
       }),
       ...blocks,
       omittedNote(r.rows.length, r.total_matches, 'Raise `limit` to see more.'),
+      '_Sitelinks (pages Google shows together in one result, with identical impressions and position) are not counted. Brand queries often list many of your pages; leave them out with exclude_queries._',
       truncatedNote(r.truncated),
     );
   },

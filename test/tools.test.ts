@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildCtrCurve, expectedCtr, INDUSTRY_CTR_CURVE } from '../src/core/analysis/ctr-curve.js';
 import { findContentDecay } from '../src/core/analysis/decay.js';
+import {
+  findCannibalization,
+  findStrikingDistance,
+  type QueryPageRow,
+} from '../src/core/analysis/opportunities.js';
 import { comparePeriods } from '../src/core/tools/compare.js';
 import { contentDecay } from '../src/core/tools/content-decay.js';
 import { batchInspectUrls, inspectUrl } from '../src/core/tools/inspection.js';
@@ -332,6 +337,60 @@ describe('inspection and sitemaps', () => {
       runtime,
     );
     expect(ok.runtime.fake.calls.at(-1)).toMatchObject({ method: 'PUT' });
+  });
+});
+
+describe('sitelinks', () => {
+  const row = (page: string, impressions: number, position: number, clicks = 0): QueryPageRow => ({
+    query: 'giveaway winner picker',
+    page: `https://example.com${page}`,
+    clicks,
+    impressions,
+    ctr: impressions ? clicks / impressions : 0,
+    position,
+  });
+  // As seen on a real property: the home page plus four sitelinks that Google reports with
+  // exactly the same impressions and position.
+  const sitelinks = ['/facebook', '/tiktok', '/x', '/youtube'].map((p) => row(p, 266, 4.8));
+  const curve = buildCtrCurve([], { benchmark: 'industry' });
+
+  it('are not cannibalization', () => {
+    const rows = [row('/', 1052, 5.1, 94), ...sitelinks];
+    expect(findCannibalization(rows, { minImpressions: 50, minSharePct: 10 })).toEqual([]);
+  });
+
+  it('are left out next to real competition and counted separately', () => {
+    const rows = [row('/', 1052, 5.1, 94), row('/blog/guide', 600, 7.3, 12), ...sitelinks];
+    const [match] = findCannibalization(rows, { minImpressions: 50, minSharePct: 10 });
+    expect(match).toMatchObject({ competing_pages: 2, sitelinks_ignored: 4 });
+    expect(match!.pages.map((p) => p.page)).toEqual([
+      'https://example.com/',
+      'https://example.com/blog/guide',
+    ]);
+  });
+
+  it("don't count as other pages in striking distance", () => {
+    const rows = [row('/', 1052, 9.1, 20), ...sitelinks.map((s) => ({ ...s, position: 9 }))];
+    const [match] = findStrikingDistance(rows, {
+      minPosition: 8,
+      maxPosition: 20,
+      minImpressions: 20,
+      targetPosition: 3,
+      curve,
+    });
+    expect(match).toMatchObject({ page: 'https://example.com/', other_pages: 0 });
+  });
+
+  it('keep one page when the group is the main result', () => {
+    const rows = [row('/', 500, 9.4, 30), row('/a', 500, 9.4, 2), row('/b', 500, 9.4)];
+    const [match] = findStrikingDistance(rows, {
+      minPosition: 8,
+      maxPosition: 20,
+      minImpressions: 20,
+      targetPosition: 3,
+      curve,
+    });
+    expect(match).toMatchObject({ page: 'https://example.com/', other_pages: 0 });
   });
 });
 
