@@ -23,9 +23,21 @@ Google OAuth mode or a custom domain behind a proxy.
 The dashboard's **Setup & health** page tells you when a new version is out.
 
 - **Vercel, Netlify, Cloudflare, Render, DigitalOcean** deploy from a copy of this repository in
-  your GitHub account. Pull the latest `main` from `tuyakhov/gsclaw` into your copy (GitHub's
-  **Sync fork** if it is a fork, or `git pull https://github.com/tuyakhov/gsclaw main`), then
-  redeploy if the platform doesn't do it automatically.
+  your GitHub account. The deploy buttons create it as a single "Initial commit", not a fork, so
+  GitHub's **Sync fork** isn't available and a plain `git pull` refuses to merge. The first time,
+  pull with these flags (later updates are a plain `git pull https://github.com/tuyakhov/gsclaw main`):
+
+  ```bash
+  git clone https://github.com/<you>/gsclaw && cd gsclaw
+  git pull --no-rebase https://github.com/tuyakhov/gsclaw main --allow-unrelated-histories -X theirs
+  git push
+  ```
+
+  `-X theirs` takes this repository's version wherever the two differ, so changes you made to
+  those files are replaced. Pushing redeploys on Vercel, Netlify and Cloudflare; on Render, click
+  **Manual Deploy**. Alternatively, point the platform at a fork of `tuyakhov/gsclaw` (or this
+  repository itself), so updates are one **Sync fork** away.
+
 - **Railway:** redeploy the service; if Railway created a copy of the repository in your GitHub
   account, sync it first.
 - **Docker / Fly.io:** pull the new image (`ghcr.io/tuyakhov/gsclaw:latest`, or pin a version tag
