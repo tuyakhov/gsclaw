@@ -8,7 +8,7 @@ import {
 } from '../src/core/analysis/opportunities.js';
 import { comparePeriods } from '../src/core/tools/compare.js';
 import { contentDecay } from '../src/core/tools/content-decay.js';
-import { batchInspectUrls, inspectUrl } from '../src/core/tools/inspection.js';
+import { batchInspectUrls, inspectUrl, summarizeInspection } from '../src/core/tools/inspection.js';
 import {
   ctrOpportunities,
   keywordCannibalization,
@@ -311,6 +311,16 @@ describe('analysis tools', () => {
 });
 
 describe('inspection and sitemaps', () => {
+  it('leaves out the retired mobile usability verdict', () => {
+    const url = 'https://example.com/';
+    const retired = summarizeInspection(url, SITE, {
+      mobileUsabilityResult: { verdict: 'VERDICT_UNSPECIFIED' },
+    });
+    expect(retired).not.toHaveProperty('mobile_usability');
+    const real = summarizeInspection(url, SITE, { mobileUsabilityResult: { verdict: 'PASS' } });
+    expect(real.mobile_usability).toEqual({ verdict: 'PASS', issues: [] });
+  });
+
   it('summarizes URL inspection and infers the property', async () => {
     const { result, text } = await call(inspectUrl, {
       url: 'https://example.com/blog/name-picker',

@@ -24,7 +24,8 @@ export interface InspectionSummary {
   sitemaps: string[];
   referring_urls: string[];
   /** Deprecated by Google; reported only when present. */
-  mobile_usability: { verdict: string; issues: string[] } | null;
+  /** Only present when Google still returns a verdict: the Mobile Usability report is retired. */
+  mobile_usability?: { verdict: string; issues: string[] };
   rich_results: {
     verdict: string;
     items: { type: string; name: string | null; issues: string[] }[];
@@ -74,6 +75,20 @@ export async function propertyForUrl(
   return best;
 }
 
+/**
+ * Google retired the Mobile Usability report, and the API now answers VERDICT_UNSPECIFIED with no
+ * issues for every URL. Keep the field only when it still says something.
+ */
+function mobileUsability(
+  mobile: UrlInspectionResult['mobileUsabilityResult'],
+  issues: (list?: { issueMessage?: string; message?: string; severity?: string }[]) => string[],
+): Pick<InspectionSummary, 'mobile_usability'> {
+  const verdict = mobile?.verdict ?? 'VERDICT_UNSPECIFIED';
+  const found = issues(mobile?.issues);
+  if (!mobile || (verdict === 'VERDICT_UNSPECIFIED' && found.length === 0)) return {};
+  return { mobile_usability: { verdict, issues: found } };
+}
+
 export function summarizeInspection(
   url: string,
   siteUrl: string,
@@ -101,12 +116,7 @@ export function summarizeInspection(
     canonical_mismatch: Boolean(google && user && google !== user),
     sitemaps: idx.sitemap ?? [],
     referring_urls: (idx.referringUrls ?? []).slice(0, 10),
-    mobile_usability: result?.mobileUsabilityResult
-      ? {
-          verdict: result.mobileUsabilityResult.verdict ?? 'VERDICT_UNSPECIFIED',
-          issues: issues(result.mobileUsabilityResult.issues),
-        }
-      : null,
+    ...mobileUsability(result?.mobileUsabilityResult, issues),
     rich_results: result?.richResultsResult
       ? {
           verdict: result.richResultsResult.verdict ?? 'VERDICT_UNSPECIFIED',
