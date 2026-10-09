@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.3](https://github.com/tuyakhov/gsclaw/compare/gsclaw-v0.1.2...gsclaw-v0.1.3) (2026-10-09)
+
+
+### Bug Fixes
+
+* dashboard widgets failing at random with "No access to &lt;property&gt;" ([3f65f52](https://github.com/tuyakhov/gsclaw/commit/3f65f52afc6adefe293ca7ce1b78160f4b486400))
+* drop the always-empty mobile usability verdict from URL Inspection ([b75a4e5](https://github.com/tuyakhov/gsclaw/commit/b75a4e54a85d1625ea754e0c2ab85ae2c5a259c2))
+* say when a page URL given as site_url covers the whole property ([76ca41f](https://github.com/tuyakhov/gsclaw/commit/76ca41f42b5b2d55bb2deb5b32f3caffb6fa7a7c))
+* search_analytics grouped by hour failed with "Google rejected the request" ([8daeae9](https://github.com/tuyakhov/gsclaw/commit/8daeae938347091983bbeed9d6ecdb3e88b2dae3))
+* sitelinks are no longer reported as keyword cannibalization ([36343e3](https://github.com/tuyakhov/gsclaw/commit/36343e345b3b57105fbee6f82da973629421a855))
+* striking_distance_keywords estimated 0 potential clicks on sites with sitelinks ([0156655](https://github.com/tuyakhov/gsclaw/commit/015665513ba622b29faf22d664fd2794a9945b0b))
+
 ## [0.1.2](https://github.com/tuyakhov/gsclaw/compare/gsclaw-v0.1.1...gsclaw-v0.1.2) (2026-10-08)
 
 
