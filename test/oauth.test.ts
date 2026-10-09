@@ -6,7 +6,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { createApp, type App } from '../src/core/app.js';
 import type { Env } from '../src/core/config.js';
-import { base64UrlEncode, sha256 } from '../src/core/crypto.js';
+import { base64ToBytes, base64UrlEncode, sha256 } from '../src/core/crypto.js';
 import { redirectUriAllowed, redirectUriMatches } from '../src/core/oauth/clients.js';
 import { createSealer } from '../src/core/seal.js';
 import { createFakeGsc, TEST_NOW } from './helpers/fake-gsc.js';
@@ -94,8 +94,28 @@ describe('sealed tokens', () => {
     expect(await sealer.open('code', token)).toMatchObject({ x: 1 });
     expect(await sealer.open('access', token)).toBeNull();
     expect(await sealer.open('access', token.replace('gsc_code_', 'gsc_at_'))).toBeNull();
-    const tampered = token.slice(0, -2) + (token.endsWith('A') ? 'BB' : 'AA');
-    expect(await sealer.open('code', tampered)).toBeNull();
+    // Tamper with the bytes, not the text: the last base64url character carries padding bits that
+    // decoders ignore, so editing characters can leave the bytes unchanged (a ~1/256 flaky test).
+    const flipBit = (sealed: string, index: (length: number) => number) => {
+      const bytes = base64ToBytes(sealed.slice('gsc_code_'.length));
+      bytes[index(bytes.length)]! ^= 0x01;
+      return `gsc_code_${base64UrlEncode(bytes)}`;
+    };
+    for (let i = 0; i < 50; i++) {
+      const sample = await sealer.seal('code', { x: i }, 60);
+      expect(
+        await sealer.open(
+          'code',
+          flipBit(sample, () => 12),
+        ),
+      ).toBeNull(); // ciphertext
+      expect(
+        await sealer.open(
+          'code',
+          flipBit(sample, (n) => n - 1),
+        ),
+      ).toBeNull(); // GCM tag
+    }
     expect(await createSealer('secret-b'.repeat(5), () => now).open('code', token)).toBeNull();
     now += 61_000;
     expect(await sealer.open('code', token)).toBeNull();
