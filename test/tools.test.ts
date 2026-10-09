@@ -15,7 +15,7 @@ import { searchAnalytics } from '../src/core/tools/search-analytics.js';
 import { listSites } from '../src/core/tools/sites.js';
 import { listSitemaps, submitSitemap } from '../src/core/tools/sitemaps.js';
 import type { AnyTool } from '../src/core/tools/types.js';
-import { LATEST_FINAL_DATE, SITE } from './helpers/fake-gsc.js';
+import { createFakeGsc, LATEST_FINAL_DATE, SITE } from './helpers/fake-gsc.js';
 import { testRuntime } from './helpers/setup.js';
 
 /** Runs a tool exactly as the MCP layer does: validate input, run, format. */
@@ -60,6 +60,54 @@ describe('list_sites', () => {
       ]),
     });
     expect(text).toContain('unverified (no data)');
+  });
+});
+
+describe('property resolution', () => {
+  // Google answers sites.list with no entries until the service account is added in Search
+  // Console. That answer must not stick after access is granted (dashboard widgets failed at
+  // random with "No access to 'sc-domain:…'" while some instances still held the empty list).
+  it('recovers once access is granted after an empty property list', async () => {
+    const fake = createFakeGsc();
+    let granted = false;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (!granted && url.endsWith('/webmasters/v3/sites')) {
+        return Response.json({});
+      }
+      return fake.fetch(input, init);
+    }) as typeof fetch;
+    const runtime = testRuntime({ fake: { ...fake, fetch: fetchImpl } });
+
+    const before = await call(listSites, {}, runtime);
+    expect((before.result as { properties: unknown[] }).properties).toEqual([]);
+
+    granted = true;
+    const after = await call(searchAnalytics, { site_url: SITE, dimensions: ['query'] }, runtime);
+    expect((after.result as { site_url: string }).site_url).toBe(SITE);
+  });
+
+  it('re-checks access when a property is missing from the cached list', async () => {
+    const fake = createFakeGsc();
+    let granted = false;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (!granted && url.endsWith('/webmasters/v3/sites')) {
+        return Response.json({
+          siteEntry: [{ siteUrl: 'https://www.example.com/', permissionLevel: 'siteFullUser' }],
+        });
+      }
+      return fake.fetch(input, init);
+    }) as typeof fetch;
+    const runtime = testRuntime({ fake: { ...fake, fetch: fetchImpl } });
+
+    const before = await call(listSites, {}, runtime);
+    expect((before.result as { properties: unknown[] }).properties).toHaveLength(1);
+
+    // The owner adds this identity to a second property while the first list is still cached.
+    granted = true;
+    const after = await call(searchAnalytics, { site_url: SITE, dimensions: ['query'] }, runtime);
+    expect((after.result as { site_url: string }).site_url).toBe(SITE);
   });
 });
 

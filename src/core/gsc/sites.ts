@@ -101,7 +101,17 @@ function describeAvailable(properties: Property[]): string {
  * or any URL on the site) to a property this identity can read.
  */
 export async function resolveProperty(client: GscClient, input: string): Promise<Property> {
-  const properties = await listProperties(client);
+  try {
+    return matchProperty(await listProperties(client), input);
+  } catch (error) {
+    if (!(error instanceof UserFacingError)) throw error;
+    // The cached list may predate a permission change (the owner just added this identity to the
+    // property), so check Google once more before failing.
+    return matchProperty(await listProperties(client, { fresh: true }), input);
+  }
+}
+
+function matchProperty(properties: Property[], input: string): Property {
   const usable = properties.filter((p) => p.has_access);
   const raw = input.trim();
   const lower = raw.toLowerCase();

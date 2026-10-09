@@ -42,7 +42,7 @@ interface RequestOptions {
   url: string;
   body?: unknown;
   siteUrl?: string;
-  /** Cache weight; omit to skip caching. */
+  /** Cache weight; omit to skip caching, or return 0 to skip caching this response. */
   cacheWeight?: (data: unknown) => number;
   /** Bypass the cached value (the fresh response is still cached). */
   fresh?: boolean;
@@ -84,7 +84,9 @@ export class GscClient {
     const data = await this.request<{ siteEntry?: SiteEntry[] }>({
       method: 'GET',
       url: `${WEBMASTERS}/sites`,
-      cacheWeight: () => 1,
+      // An empty list means access hasn't been granted yet, which is about to change: caching it
+      // would keep tools failing for the cache lifetime after the owner adds this identity.
+      cacheWeight: (d) => ((d as { siteEntry?: SiteEntry[] }).siteEntry?.length ? 1 : 0),
       fresh: opts.fresh,
     });
     return data.siteEntry ?? [];
@@ -253,7 +255,8 @@ export class GscClient {
       if (res.ok) {
         const text = await res.text();
         const data = (text ? JSON.parse(text) : {}) as T;
-        if (useCache) this.cache.set(key, data, this.cacheTtlMs, opts.cacheWeight!(data));
+        const weight = useCache ? opts.cacheWeight!(data) : 0;
+        if (weight > 0) this.cache!.set(key, data, this.cacheTtlMs, weight);
         return data;
       }
 
