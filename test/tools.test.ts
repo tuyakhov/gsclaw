@@ -145,6 +145,13 @@ describe('search_analytics', () => {
     ).rejects.toThrow(/cannot be combined/);
   });
 
+  it('groups by hour, with totals', async () => {
+    const { result } = await call(searchAnalytics, { site_url: SITE, dimensions: ['hour'] });
+    const r = result as { data_state: string; totals: { impressions: number } | null };
+    expect(r.data_state).toBe('hourly_all');
+    expect(r.totals?.impressions).toBeGreaterThan(0);
+  });
+
   it('uses fresh data when asked', async () => {
     const { result, runtime } = await call(searchAnalytics, {
       site_url: SITE,

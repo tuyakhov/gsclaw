@@ -244,7 +244,22 @@ export function createFakeGsc(opts: { facts?: Fact[]; sites?: typeof sitesFixtur
           403,
         );
       }
-      const rows = aggregate(facts, body as SearchAnalyticsRequest);
+      const req = body as SearchAnalyticsRequest;
+      // Mirrors Google: hourly data states are only valid when grouping by hour.
+      if (req.dataState === 'hourly_all' && !req.dimensions?.includes('hour')) {
+        return respond(
+          {
+            error: {
+              code: 400,
+              message:
+                'Using dataState=HOURLY_ALL (indicating that hourly data includes partial data) only when grouping by HOUR',
+              status: 'INVALID_ARGUMENT',
+            },
+          },
+          400,
+        );
+      }
+      const rows = aggregate(facts, req);
       return respond({ ...(rows.length ? { rows } : {}), responseAggregationType: 'byProperty' });
     }
     if (path === '/v1/urlInspection/index:inspect') {

@@ -125,7 +125,13 @@ export const searchAnalytics = defineTool({
           )
         : Promise.resolve(null),
       input.include_totals || input.dimensions.length === 0
-        ? ctx.gsc.searchAnalytics(property.site_url, { ...base, rowLimit: 1 })
+        ? ctx.gsc.searchAnalytics(property.site_url, {
+            ...base,
+            // Google only accepts the hourly data state when grouping by hour; totals have no
+            // dimensions, so ask for the same days with all (fresh) data instead.
+            dataState: hourly ? 'all' : base.dataState,
+            rowLimit: 1,
+          })
         : Promise.resolve(null),
     ]);
 
